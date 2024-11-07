@@ -164,3 +164,37 @@ def get_orders(delivery_date):
         } for o in orders])
     except ValueError:
         return jsonify({'error': 'Invalid date format'}), 400
+
+@routes.route('/api/daily_driver_expense/<date>', methods=['GET'])
+@login_required
+def get_daily_driver_expense(date):
+    try:
+        date_obj = datetime.strptime(date, '%Y-%m-%d')
+        orders = Order.query.filter_by(delivery_date=date_obj).all()
+        total_expense = sum(float(order.driver_expense) for order in orders)
+        return jsonify({'amount': total_expense})
+    except ValueError:
+        return jsonify({'error': 'Invalid date format'}), 400
+
+@routes.route('/api/daily_driver_expense', methods=['POST'])
+@login_required
+def save_daily_driver_expense():
+    try:
+        data = request.json
+        date_obj = datetime.strptime(data['date'], '%Y-%m-%d')
+        amount = Decimal(str(data['amount']))
+
+        # Update all orders for the day with equal portions of the driver expense
+        orders = Order.query.filter_by(delivery_date=date_obj).all()
+        if orders:
+            expense_per_order = amount / len(orders)
+            for order in orders:
+                order.driver_expense = expense_per_order
+            db.session.commit()
+            return jsonify({'success': True})
+        return jsonify({'error': 'No orders found for this date'}), 404
+    except (ValueError, KeyError) as e:
+        return jsonify({'error': str(e)}), 400
+    except SQLAlchemyError as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 400

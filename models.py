@@ -32,7 +32,23 @@ class Order(db.Model):
     delivery_date = db.Column(db.Date, nullable=False)
     total_cases = db.Column(db.Integer, nullable=False)
     total_cost = db.Column(db.Numeric(10, 2), nullable=False)
+    
+    # New payment tracking fields
+    payment_cash = db.Column(db.Numeric(10, 2), default=0)
+    payment_check = db.Column(db.Numeric(10, 2), default=0)
+    payment_credit = db.Column(db.Numeric(10, 2), default=0)
     payment_received = db.Column(db.Numeric(10, 2), default=0)
+    
+    # New driver expense field
+    driver_expense = db.Column(db.Numeric(10, 2), default=0)
+    
+    # New one-time delivery flag
+    is_one_time_delivery = db.Column(db.Boolean, default=False)
+    
     status = db.Column(db.String(20), default='pending')  # pending, delivered, cancelled
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    @property
+    def total_payment(self):
+        return float(self.payment_cash) + float(self.payment_check) + float(self.payment_credit)

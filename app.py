@@ -18,6 +18,16 @@ app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
 
 db.init_app(app)
 
+def create_admin_user():
+    from models import User
+    admin = User.query.filter_by(username='admin').first()
+    if not admin:
+        admin = User(username='admin', email='admin@example.com')
+        admin.set_password('admin123')
+        db.session.add(admin)
+        db.session.commit()
+        print("Admin user created successfully")
+
 with app.app_context():
     import models
     from auth import auth, init_auth
@@ -28,3 +38,4 @@ with app.app_context():
     init_auth(app)
     
     db.create_all()
+    create_admin_user()

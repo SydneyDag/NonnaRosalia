@@ -30,6 +30,20 @@ def customers():
 def orders():
     return render_template('orders.html')
 
+@routes.route('/api/customers')
+@login_required
+def get_customers():
+    customers = Customer.query.all()
+    return jsonify([{
+        'id': c.id,
+        'name': c.name,
+        'address': c.address,
+        'delivery_day': c.delivery_day,
+        'account_type': c.account_type,
+        'territory': c.territory,
+        'balance': float(c.balance)
+    } for c in customers])
+
 @routes.route('/api/orders/<date>')
 @login_required
 def get_orders_by_date(date):
@@ -153,6 +167,7 @@ def save_daily_driver_expense():
 # Add test customers
 def create_test_customers():
     if Customer.query.count() == 0:
+        print("Creating test customers...")
         test_customers = [
             Customer(name="John's Store", address="123 Main St", delivery_day="Monday", 
                     account_type="Regular", territory="North"),
@@ -163,7 +178,12 @@ def create_test_customers():
         ]
         for customer in test_customers:
             db.session.add(customer)
-        db.session.commit()
+        try:
+            db.session.commit()
+            print("Test customers created successfully")
+        except Exception as e:
+            print(f"Error creating test customers: {e}")
+            db.session.rollback()
 
 # Create test customers when the app starts
 create_test_customers()

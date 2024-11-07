@@ -17,14 +17,23 @@
                         {% endfor %}
                     {% endif %}
                 {% endwith %}
+                <div class="alert alert-info" role="alert">
+                    <strong>Default Login Credentials:</strong><br>
+                    Username: admin<br>
+                    Password: admin123
+                </div>
                 <form method="POST">
                     <div class="mb-3">
                         <label for="username" class="form-label">Username</label>
-                        <input type="text" class="form-control" id="username" name="username" required>
+                        <input type="text" class="form-control" id="username" name="username" required 
+                               placeholder="Enter username (e.g. admin)">
+                        <div class="form-text text-muted">The default username is 'admin'</div>
                     </div>
                     <div class="mb-3">
                         <label for="password" class="form-label">Password</label>
-                        <input type="password" class="form-control" id="password" name="password" required>
+                        <input type="password" class="form-control" id="password" name="password" required
+                               placeholder="Enter password (e.g. admin123)">
+                        <div class="form-text text-muted">The default password is 'admin123'</div>
                     </div>
                     <button type="submit" class="btn btn-primary">Login</button>
                 </form>

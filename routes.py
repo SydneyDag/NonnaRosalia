@@ -49,16 +49,17 @@ def get_customers():
 def get_orders_by_date(date):
     try:
         delivery_date = datetime.strptime(date, '%Y-%m-%d').date()
+        weekday = delivery_date.strftime('%A')
+        
+        # Get existing orders for the date
         orders = Order.query.join(Customer).filter(Order.delivery_date == delivery_date).all()
         
         # If it's today's date and no orders exist, create empty orders for scheduled customers
         if delivery_date == datetime.now().date() and not orders:
-            # Get customers scheduled for today's weekday
-            weekday = delivery_date.strftime('%A')
+            # Get ONLY customers scheduled for today's weekday
             scheduled_customers = Customer.query.filter_by(delivery_day=weekday).all()
             
             # Create empty orders for scheduled customers
-            orders = []
             for customer in scheduled_customers:
                 order = Order(
                     customer_id=customer.id,
@@ -160,6 +161,30 @@ def save_daily_driver_expense():
             db.session.commit()
             return jsonify({'success': True})
         return jsonify({'error': 'No orders found for this date'}), 404
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 400
+
+@routes.route('/orders', methods=['POST'])
+@login_required
+def create_order():
+    try:
+        data = request.json
+        order = Order(
+            customer_id=data['customer_id'],
+            delivery_date=datetime.strptime(data['delivery_date'], '%Y-%m-%d').date(),
+            order_date=datetime.now().date(),
+            total_cases=data['total_cases'],
+            total_cost=Decimal(str(data['total_cost'])),
+            payment_cash=Decimal(str(data.get('payment_cash', 0))),
+            payment_check=Decimal(str(data.get('payment_check', 0))),
+            payment_credit=Decimal(str(data.get('payment_credit', 0))),
+            payment_received=Decimal(str(data.get('payment_received', 0))),
+            driver_expense=Decimal(str(data.get('driver_expense', 0)))
+        )
+        db.session.add(order)
+        db.session.commit()
+        return jsonify({'success': True, 'id': order.id})
     except Exception as e:
         db.session.rollback()
         return jsonify({'error': str(e)}), 400

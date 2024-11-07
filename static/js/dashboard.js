@@ -179,6 +179,9 @@ document.addEventListener('DOMContentLoaded', function() {
             payment_cash: parseFloat(document.getElementById('paymentCash').value) || 0,
             payment_check: parseFloat(document.getElementById('paymentCheck').value) || 0,
             payment_credit: parseFloat(document.getElementById('paymentCredit').value) || 0,
+            payment_received: parseFloat(document.getElementById('paymentCash').value || 0) +
+                            parseFloat(document.getElementById('paymentCheck').value || 0) +
+                            parseFloat(document.getElementById('paymentCredit').value || 0),
             driver_expense: parseFloat(document.getElementById('driverExpense').value) || 0
         };
 
@@ -193,6 +196,10 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(() => {
             $('#orderModal').modal('hide');
             loadOrders();
+        })
+        .catch(error => {
+            console.error('Error saving order:', error);
+            alert('Error saving order. Please try again.');
         });
     });
 

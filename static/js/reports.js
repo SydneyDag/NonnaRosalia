@@ -53,6 +53,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
 
     generateReportBtn.addEventListener('click', loadReport);
+    document.getElementById('downloadReport').addEventListener('click', downloadReport);
 
     function loadReport() {
         const params = new URLSearchParams({
@@ -80,6 +81,16 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('tableTotalCost').textContent = `$${summary.total_revenue.toFixed(2)}`;
         document.getElementById('tableTotalPayments').textContent = `$${summary.total_payments.toFixed(2)}`;
         document.getElementById('tableOutstandingBalance').textContent = `$${summary.outstanding_balance.toFixed(2)}`;
+    }
+
+    function downloadReport() {
+        const params = new URLSearchParams({
+            start_date: startDate.value,
+            end_date: endDate.value,
+            territory: territorySelect.value
+        });
+        
+        window.location.href = `/download_report?${params}`;
     }
 
     // Load initial report

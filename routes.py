@@ -1,10 +1,12 @@
-from flask import Blueprint, render_template, request, jsonify, flash
+from flask import Blueprint, render_template, request, jsonify, flash, send_file
 from flask_login import login_required
 from models import Customer, Order, db
 from datetime import datetime
 from decimal import Decimal
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy import func
+import os
+from utils.pdf_generator import generate_invoice_pdf, generate_report_pdf
 
 routes = Blueprint('routes', __name__)
 
@@ -258,4 +260,79 @@ def save_daily_driver_expense():
         return jsonify({'error': str(e)}), 400
     except SQLAlchemyError as e:
         db.session.rollback()
+        return jsonify({'error': str(e)}), 400
+
+@routes.route('/download_invoice/<int:order_id>')
+@login_required
+def download_invoice(order_id):
+    try:
+        order = Order.query.get_or_404(order_id)
+        customer = order.customer
+        
+        # Create temporary file
+        filename = f"invoice_{order_id}.pdf"
+        filepath = os.path.join("/tmp", filename)
+        
+        generate_invoice_pdf(order, customer, filepath)
+        
+        return send_file(
+            filepath,
+            as_attachment=True,
+            download_name=filename,
+            mimetype='application/pdf'
+        )
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+
+@routes.route('/download_report')
+@login_required
+def download_report():
+    try:
+        start_date = datetime.strptime(request.args.get('start_date'), '%Y-%m-%d')
+        end_date = datetime.strptime(request.args.get('end_date'), '%Y-%m-%d')
+        territory = request.args.get('territory')
+
+        # Build the base query
+        query = db.session.query(Order).join(Customer)
+        
+        # Apply filters
+        query = query.filter(Order.order_date.between(start_date, end_date))
+        if territory:
+            query = query.filter(Customer.territory == territory)
+
+        # Execute query
+        orders = query.all()
+
+        # Prepare orders data
+        orders_data = [{
+            'order_date': o.order_date.isoformat(),
+            'customer_name': o.customer.name,
+            'total_cases': o.total_cases,
+            'total_cost': float(o.total_cost),
+            'payment_received': float(o.payment_received),
+            'status': o.status
+        } for o in orders]
+
+        # Calculate summary
+        summary = {
+            'total_orders': len(orders),
+            'total_cases': sum(o.total_cases for o in orders),
+            'total_revenue': float(sum(o.total_cost for o in orders)),
+            'total_payments': float(sum(o.payment_received for o in orders)),
+            'outstanding_balance': float(sum(o.total_cost - o.payment_received for o in orders))
+        }
+
+        # Generate PDF
+        filename = f"report_{start_date.strftime('%Y%m%d')}_{end_date.strftime('%Y%m%d')}.pdf"
+        filepath = os.path.join("/tmp", filename)
+        
+        generate_report_pdf(orders_data, summary, start_date, end_date, territory, filepath)
+        
+        return send_file(
+            filepath,
+            as_attachment=True,
+            download_name=filename,
+            mimetype='application/pdf'
+        )
+    except Exception as e:
         return jsonify({'error': str(e)}), 400

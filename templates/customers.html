@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h4 class="mb-0">Customer Management</h4>
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#customerModal">
+            Add Customer
+        </button>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table id="customersTable" class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Address</th>
+                        <th>Delivery Day</th>
+                        <th>Account Type</th>
+                        <th>Territory</th>
+                        <th>Balance</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Customer Modal -->
+<div class="modal fade" id="customerModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Customer Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="customerForm">
+                    <input type="hidden" id="customerId">
+                    <div class="mb-3">
+                        <label class="form-label">Name</label>
+                        <input type="text" class="form-control" id="name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Address</label>
+                        <input type="text" class="form-control" id="address" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Delivery Day</label>
+                        <select class="form-control" id="deliveryDay" required>
+                            <option value="Monday">Monday</option>
+                            <option value="Tuesday">Tuesday</option>
+                            <option value="Wednesday">Wednesday</option>
+                            <option value="Thursday">Thursday</option>
+                            <option value="Friday">Friday</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Account Type</label>
+                        <select class="form-control" id="accountType" required>
+                            <option value="Regular">Regular</option>
+                            <option value="Premium">Premium</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Territory</label>
+                        <input type="text" class="form-control" id="territory" required>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary" id="saveCustomer">Save</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="/static/js/customers.js"></script>
+{% endblock %}

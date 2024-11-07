@@ -49,10 +49,13 @@ def get_customers():
 def get_orders_by_date(date):
     try:
         delivery_date = datetime.strptime(date, '%Y-%m-%d').date()
-        weekday = delivery_date.strftime('%A')
+        weekday = delivery_date.strftime('%A')  # Get the weekday name
         
         # Get existing orders for the date
-        orders = Order.query.join(Customer).filter(Order.delivery_date == delivery_date).all()
+        orders = Order.query.join(Customer).filter(
+            Order.delivery_date == delivery_date,
+            Customer.delivery_day == weekday  # Only get orders for customers scheduled this day
+        ).all()
         
         # If it's today's date and no orders exist, create empty orders for scheduled customers
         if delivery_date == datetime.now().date() and not orders:
@@ -76,8 +79,11 @@ def get_orders_by_date(date):
                 db.session.add(order)
             db.session.commit()
             
-            # Reload orders
-            orders = Order.query.join(Customer).filter(Order.delivery_date == delivery_date).all()
+            # Reload orders with the weekday filter
+            orders = Order.query.join(Customer).filter(
+                Order.delivery_date == delivery_date,
+                Customer.delivery_day == weekday
+            ).all()
         
         return jsonify([{
             'id': order.id,
@@ -189,7 +195,7 @@ def create_order():
         db.session.rollback()
         return jsonify({'error': str(e)}), 400
 
-# Add test customers
+# Create test customers
 def create_test_customers():
     if Customer.query.count() == 0:
         print("Creating test customers...")

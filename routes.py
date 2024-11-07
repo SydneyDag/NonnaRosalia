@@ -1,10 +1,10 @@
 from flask import Blueprint, render_template, request, jsonify, flash, send_file
 from flask_login import login_required
 from models import Customer, Order, db
-from datetime import datetime
+from datetime import datetime, timedelta
 from decimal import Decimal
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy import func
+from sqlalchemy import func, and_
 import os
 from utils.pdf_generator import generate_invoice_pdf, generate_report_pdf
 
@@ -119,7 +119,22 @@ def get_reports():
 @routes.route('/api/customers')
 @login_required
 def get_customers():
-    customers = Customer.query.all()
+    # Get filter parameters
+    territory = request.args.get('territory')
+    delivery_day = request.args.get('delivery_day')
+    account_type = request.args.get('account_type')
+
+    # Build query with filters
+    query = Customer.query
+    
+    if territory:
+        query = query.filter(Customer.territory == territory)
+    if delivery_day:
+        query = query.filter(Customer.delivery_day == delivery_day)
+    if account_type:
+        query = query.filter(Customer.account_type == account_type)
+
+    customers = query.all()
     return jsonify([{
         'id': c.id,
         'name': c.name,
@@ -210,7 +225,27 @@ def orders():
 def get_orders(delivery_date):
     try:
         date_obj = datetime.strptime(delivery_date, '%Y-%m-%d')
-        orders = Order.query.filter_by(delivery_date=date_obj).all()
+        
+        # Get additional filter parameters
+        customer_id = request.args.get('customer_id')
+        status = request.args.get('status')
+        end_date = request.args.get('end_date')
+
+        # Build query with filters
+        query = Order.query
+
+        if end_date:
+            end_date_obj = datetime.strptime(end_date, '%Y-%m-%d')
+            query = query.filter(Order.delivery_date.between(date_obj, end_date_obj))
+        else:
+            query = query.filter_by(delivery_date=date_obj)
+
+        if customer_id:
+            query = query.filter_by(customer_id=customer_id)
+        if status:
+            query = query.filter_by(status=status)
+
+        orders = query.all()
         return jsonify([{
             'id': o.id,
             'customer_id': o.customer_id,

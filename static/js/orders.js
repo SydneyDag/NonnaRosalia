@@ -1,5 +1,20 @@
 document.addEventListener('DOMContentLoaded', function() {
     const ordersTable = $('#ordersTable').DataTable({
+        dom: '<"row mb-3"<"col-md-6"B><"col-md-6"f>>rt<"row"<"col-md-6"l><"col-md-6"p>>',
+        buttons: [
+            {
+                text: 'Reset Filters',
+                className: 'btn btn-secondary',
+                action: function () {
+                    $('#customerFilter').val('');
+                    $('#statusFilter').val('');
+                    $('#dateRangeStart').val('');
+                    $('#dateRangeEnd').val('');
+                    ordersTable.search('').columns().search('').draw();
+                    loadOrders();
+                }
+            }
+        ],
         columns: [
             { data: 'customer_name' },
             { 
@@ -42,15 +57,61 @@ document.addEventListener('DOMContentLoaded', function() {
         ]
     });
 
-    // Load customers for the dropdown
+    // Add filter controls above the table
+    $('.card-body').prepend(`
+        <div class="row mb-3">
+            <div class="col-md-3">
+                <select id="customerFilter" class="form-select">
+                    <option value="">All Customers</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <select id="statusFilter" class="form-select">
+                    <option value="">All Statuses</option>
+                    <option value="pending">Pending</option>
+                    <option value="delivered">Delivered</option>
+                    <option value="cancelled">Cancelled</option>
+                </select>
+            </div>
+            <div class="col-md-6">
+                <div class="input-group">
+                    <input type="date" class="form-control" id="dateRangeStart">
+                    <span class="input-group-text">to</span>
+                    <input type="date" class="form-control" id="dateRangeEnd">
+                </div>
+            </div>
+        </div>
+    `);
+
+    // Initialize date inputs
+    const now = new Date();
+    document.getElementById('dateRangeStart').valueAsDate = now;
+    document.getElementById('dateRangeEnd').valueAsDate = now;
+
+    // Load customers for filters and modal
     fetch('/api/customers')
         .then(response => response.json())
         .then(customers => {
-            const select = document.getElementById('customerId');
-            select.innerHTML = customers.map(c => 
+            const customerOptions = customers.map(c => 
                 `<option value="${c.id}">${c.name}</option>`
             ).join('');
+            
+            document.getElementById('customerId').innerHTML = customerOptions;
+            document.getElementById('customerFilter').innerHTML += customerOptions;
         });
+
+    // Add filter event listeners
+    $('#customerFilter').on('change', function() {
+        ordersTable.column(0).search($(this).find('option:selected').text()).draw();
+    });
+
+    $('#statusFilter').on('change', function() {
+        ordersTable.column(7).search(this.value).draw();
+    });
+
+    $('#dateRangeStart, #dateRangeEnd').on('change', function() {
+        loadOrders();
+    });
 
     // Calculate total cost when cases or cost per case changes
     document.getElementById('totalCases').addEventListener('input', calculateTotal);
@@ -180,8 +241,11 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     function loadOrders() {
-        const today = new Date().toISOString().split('T')[0];
-        fetch(`/api/orders/${today}`)
+        const startDate = document.getElementById('dateRangeStart').value;
+        const endDate = document.getElementById('dateRangeEnd').value;
+        const dateToUse = startDate || endDate || new Date().toISOString().split('T')[0];
+        
+        fetch(`/api/orders/${dateToUse}`)
             .then(response => response.json())
             .then(data => {
                 ordersTable.clear().rows.add(data).draw();

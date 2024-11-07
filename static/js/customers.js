@@ -1,5 +1,18 @@
 document.addEventListener('DOMContentLoaded', function() {
     const customersTable = $('#customersTable').DataTable({
+        dom: '<"row mb-3"<"col-md-6"B><"col-md-6"f>>rt<"row"<"col-md-6"l><"col-md-6"p>>',
+        buttons: [
+            {
+                text: 'Reset Filters',
+                className: 'btn btn-secondary',
+                action: function () {
+                    $('#territoryFilter').val('');
+                    $('#deliveryDayFilter').val('');
+                    $('#accountTypeFilter').val('');
+                    customersTable.search('').columns().search('').draw();
+                }
+            }
+        ],
         columns: [
             { data: 'name' },
             { data: 'address' },
@@ -20,6 +33,57 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             }
         ]
+    });
+
+    // Add filter controls above the table
+    $('.card-body').prepend(`
+        <div class="row mb-3">
+            <div class="col-md-4">
+                <select id="territoryFilter" class="form-select">
+                    <option value="">All Territories</option>
+                </select>
+            </div>
+            <div class="col-md-4">
+                <select id="deliveryDayFilter" class="form-select">
+                    <option value="">All Delivery Days</option>
+                    <option value="Monday">Monday</option>
+                    <option value="Tuesday">Tuesday</option>
+                    <option value="Wednesday">Wednesday</option>
+                    <option value="Thursday">Thursday</option>
+                    <option value="Friday">Friday</option>
+                </select>
+            </div>
+            <div class="col-md-4">
+                <select id="accountTypeFilter" class="form-select">
+                    <option value="">All Account Types</option>
+                    <option value="Regular">Regular</option>
+                    <option value="Premium">Premium</option>
+                </select>
+            </div>
+        </div>
+    `);
+
+    // Load territories for the filter
+    fetch('/api/territories')
+        .then(response => response.json())
+        .then(territories => {
+            const territoryFilter = document.getElementById('territoryFilter');
+            territoryFilter.innerHTML += territories.map(t => 
+                `<option value="${t}">${t}</option>`
+            ).join('');
+        });
+
+    // Add filter event listeners
+    $('#territoryFilter').on('change', function() {
+        customersTable.column(4).search(this.value).draw();
+    });
+
+    $('#deliveryDayFilter').on('change', function() {
+        customersTable.column(2).search(this.value).draw();
+    });
+
+    $('#accountTypeFilter').on('change', function() {
+        customersTable.column(3).search(this.value).draw();
     });
 
     loadCustomers();

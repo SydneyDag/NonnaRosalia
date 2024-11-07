@@ -4,6 +4,7 @@ from models import Customer, Order, db
 from datetime import datetime
 from decimal import Decimal
 from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy import func
 
 routes = Blueprint('routes', __name__)
 
@@ -11,6 +12,11 @@ routes = Blueprint('routes', __name__)
 @login_required
 def dashboard():
     return render_template('dashboard.html')
+
+@routes.route('/reports')
+@login_required
+def reports():
+    return render_template('reports.html')
 
 @routes.route('/customers', methods=['GET', 'POST', 'PUT', 'DELETE'])
 @login_required
@@ -51,6 +57,61 @@ def customers():
             return jsonify({'success': True})
     except SQLAlchemyError as e:
         db.session.rollback()
+        return jsonify({'error': str(e)}), 400
+
+@routes.route('/api/territories')
+@login_required
+def get_territories():
+    territories = db.session.query(Customer.territory).distinct().all()
+    return jsonify([t[0] for t in territories])
+
+@routes.route('/api/reports')
+@login_required
+def get_reports():
+    try:
+        start_date = datetime.strptime(request.args.get('start_date'), '%Y-%m-%d')
+        end_date = datetime.strptime(request.args.get('end_date'), '%Y-%m-%d')
+        territory = request.args.get('territory')
+
+        # Build the base query
+        query = db.session.query(Order).join(Customer)
+        
+        # Apply filters
+        query = query.filter(Order.order_date.between(start_date, end_date))
+        if territory:
+            query = query.filter(Customer.territory == territory)
+
+        # Execute query
+        orders = query.all()
+
+        # Prepare orders data
+        orders_data = [{
+            'order_date': order.order_date.isoformat(),
+            'territory': order.customer.territory,
+            'customer_name': order.customer.name,
+            'total_cases': order.total_cases,
+            'total_cost': float(order.total_cost),
+            'payment_received': float(order.payment_received),
+            'status': order.status
+        } for order in orders]
+
+        # Calculate summary
+        summary = {
+            'total_orders': len(orders),
+            'total_cases': sum(o.total_cases for o in orders),
+            'total_revenue': float(sum(o.total_cost for o in orders)),
+            'total_payments': float(sum(o.payment_received for o in orders)),
+            'outstanding_balance': float(sum(o.total_cost - o.payment_received for o in orders))
+        }
+
+        return jsonify({
+            'orders': orders_data,
+            'summary': summary
+        })
+
+    except ValueError as e:
+        return jsonify({'error': 'Invalid date format'}), 400
+    except SQLAlchemyError as e:
         return jsonify({'error': str(e)}), 400
 
 @routes.route('/api/customers')

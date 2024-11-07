@@ -71,15 +71,34 @@ document.addEventListener('DOMContentLoaded', function() {
     deliveryDate.valueAsDate = new Date();
     loadOrders();
 
+    // Show/hide Add Order button based on selected date
+    function updateAddOrderButton() {
+        const today = new Date().toISOString().split('T')[0];
+        const addOrderBtn = document.getElementById('addOrderBtn');
+        if (addOrderBtn) {
+            addOrderBtn.style.display = deliveryDate.value === today ? 'block' : 'none';
+        }
+    }
+
     // Event Listeners
     deliveryDate.addEventListener('change', () => {
         loadOrders();
         loadDailyDriverExpense();
+        updateAddOrderButton();
     });
 
     document.getElementById('saveDriverExpense').addEventListener('click', saveDailyDriverExpense);
 
-    // Event delegation for input changes
+    // Calculate total cost when cases or cost per case changes
+    document.getElementById('totalCases').addEventListener('input', calculateTotal);
+    document.getElementById('costPerCase').addEventListener('input', calculateTotal);
+
+    // Calculate total payment when any payment field changes
+    document.querySelectorAll('.payment-input').forEach(input => {
+        input.addEventListener('input', calculateTotalPayment);
+    });
+
+    // Event delegation for input changes in the table
     $('#ordersTable').on('change', 'input', function() {
         const row = $(this).closest('tr');
         const data = ordersTable.row(row).data();
@@ -99,6 +118,46 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
+    // Load customers for the modal
+    fetch('/api/customers')
+        .then(response => response.json())
+        .then(customers => {
+            const customerOptions = customers.map(c => 
+                `<option value="${c.id}">${c.name}</option>`
+            ).join('');
+            document.getElementById('customerId').innerHTML = customerOptions;
+        });
+
+    function calculateTotal() {
+        const cases = document.getElementById('totalCases').value || 0;
+        const costPerCase = document.getElementById('costPerCase').value || 0;
+        const total = cases * costPerCase;
+        document.getElementById('totalCost').value = total.toFixed(2);
+        validatePayments();
+    }
+
+    function calculateTotalPayment() {
+        const cash = parseFloat(document.getElementById('paymentCash').value) || 0;
+        const check = parseFloat(document.getElementById('paymentCheck').value) || 0;
+        const credit = parseFloat(document.getElementById('paymentCredit').value) || 0;
+        const total = cash + check + credit;
+        document.getElementById('paymentReceived').value = total.toFixed(2);
+        validatePayments();
+    }
+
+    function validatePayments() {
+        const totalCost = parseFloat(document.getElementById('totalCost').value) || 0;
+        const totalPayment = parseFloat(document.getElementById('paymentReceived').value) || 0;
+        const saveButton = document.getElementById('saveOrder');
+        
+        if (totalPayment > totalCost) {
+            alert('Total payment cannot exceed total cost');
+            saveButton.disabled = true;
+        } else {
+            saveButton.disabled = false;
+        }
+    }
+
     function collectRowData(row, originalData) {
         return {
             id: originalData.id,
@@ -109,6 +168,33 @@ document.addEventListener('DOMContentLoaded', function() {
             payment_credit: parseFloat(row.find('.credit-input').val()) || 0
         };
     }
+
+    // Save order
+    document.getElementById('saveOrder').addEventListener('click', function() {
+        const orderData = {
+            customer_id: document.getElementById('customerId').value,
+            delivery_date: deliveryDate.value,
+            total_cases: parseInt(document.getElementById('totalCases').value),
+            total_cost: parseFloat(document.getElementById('totalCost').value),
+            payment_cash: parseFloat(document.getElementById('paymentCash').value) || 0,
+            payment_check: parseFloat(document.getElementById('paymentCheck').value) || 0,
+            payment_credit: parseFloat(document.getElementById('paymentCredit').value) || 0,
+            driver_expense: parseFloat(document.getElementById('driverExpense').value) || 0
+        };
+
+        fetch('/orders', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(orderData)
+        })
+        .then(response => response.json())
+        .then(() => {
+            $('#orderModal').modal('hide');
+            loadOrders();
+        });
+    });
 
     function loadOrders() {
         const today = new Date().toISOString().split('T')[0];
@@ -193,6 +279,7 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('netIncome').textContent = `$${netIncome.toFixed(2)}`;
     }
 
-    // Initial load of driver expense
+    // Initial updates
+    updateAddOrderButton();
     loadDailyDriverExpense();
 });

@@ -101,18 +101,21 @@ document.addEventListener('DOMContentLoaded', function() {
             totalPayments: 0
         });
 
-        // Update table totals
+        // Update summary cards
         document.getElementById('totalCases').textContent = totals.cases;
         document.getElementById('totalCost').textContent = `$${totals.cost.toFixed(2)}`;
+        document.getElementById('totalPayments').textContent = `$${totals.totalPayments.toFixed(2)}`;
+
+        // Update table totals
+        document.getElementById('tableTotalCases').textContent = totals.cases;
+        document.getElementById('tableTotalCost').textContent = `$${totals.cost.toFixed(2)}`;
         document.getElementById('totalCashPayments').textContent = `$${totals.cashPayments.toFixed(2)}`;
         document.getElementById('totalCheckPayments').textContent = `$${totals.checkPayments.toFixed(2)}`;
         document.getElementById('totalCreditPayments').textContent = `$${totals.creditPayments.toFixed(2)}`;
-        document.getElementById('totalPayments').textContent = `$${totals.totalPayments.toFixed(2)}`;
+        document.getElementById('tableTotalPayments').textContent = `$${totals.totalPayments.toFixed(2)}`;
 
-        // Update daily summary
+        // Calculate and update net income
         const driverExpense = parseFloat(dailyDriverExpense.value) || 0;
-        document.getElementById('totalDriverExpense').textContent = `$${driverExpense.toFixed(2)}`;
-        
         const netIncome = totals.totalPayments - driverExpense;
         document.getElementById('netIncome').textContent = `$${netIncome.toFixed(2)}`;
     }

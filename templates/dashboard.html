@@ -14,16 +14,16 @@
                 </div>
             </div>
         </div>
-        <div class="col-md-8">
+        <div class="col-md-4">
             <div class="card">
                 <div class="card-header">
-                    <h5 class="mb-0">Daily Driver Expense</h5>
+                    <h5 class="mb-0">Driver Expense</h5>
                 </div>
-                <div class="card-body">
-                    <div class="input-group">
+                <div class="card-body p-2">
+                    <div class="input-group input-group-sm">
                         <span class="input-group-text">$</span>
                         <input type="number" id="dailyDriverExpense" class="form-control" min="0" step="0.01" value="0">
-                        <button class="btn btn-primary" id="saveDriverExpense">Save</button>
+                        <button class="btn btn-primary btn-sm" id="saveDriverExpense">Save</button>
                     </div>
                 </div>
             </div>
@@ -36,6 +36,42 @@
             <h4 class="mb-0">Daily Orders</h4>
         </div>
         <div class="card-body">
+            <!-- Summary Cards -->
+            <div class="row mb-4">
+                <div class="col-md-3">
+                    <div class="card bg-secondary">
+                        <div class="card-body text-center">
+                            <h6 class="card-title">Total Cases</h6>
+                            <h4 id="totalCases" class="mb-0">0</h4>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-secondary">
+                        <div class="card-body text-center">
+                            <h6 class="card-title">Total Cost</h6>
+                            <h4 id="totalCost" class="mb-0">$0.00</h4>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-secondary">
+                        <div class="card-body text-center">
+                            <h6 class="card-title">Total Payments</h6>
+                            <h4 id="totalPayments" class="mb-0">$0.00</h4>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-secondary">
+                        <div class="card-body text-center">
+                            <h6 class="card-title">Net Income</h6>
+                            <h4 id="netIncome" class="mb-0">$0.00</h4>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <div class="table-responsive">
                 <table id="ordersTable" class="table table-striped">
                     <thead>
@@ -54,35 +90,16 @@
                     <tfoot>
                         <tr>
                             <th>Totals:</th>
-                            <th id="totalCases">0</th>
-                            <th id="totalCost">$0.00</th>
+                            <th id="tableTotalCases">0</th>
+                            <th id="tableTotalCost">$0.00</th>
                             <th id="totalCashPayments">$0.00</th>
                             <th id="totalCheckPayments">$0.00</th>
                             <th id="totalCreditPayments">$0.00</th>
-                            <th id="totalPayments">$0.00</th>
+                            <th id="tableTotalPayments">$0.00</th>
                             <th></th>
                         </tr>
                     </tfoot>
                 </table>
-            </div>
-
-            <!-- Daily Summary -->
-            <div class="mt-4">
-                <h5>Daily Summary</h5>
-                <div class="row">
-                    <div class="col-md-6">
-                        <table class="table">
-                            <tr>
-                                <th>Total Driver Expense:</th>
-                                <td id="totalDriverExpense">$0.00</td>
-                            </tr>
-                            <tr>
-                                <th>Net Income:</th>
-                                <td id="netIncome">$0.00</td>
-                            </tr>
-                        </table>
-                    </div>
-                </div>
             </div>
         </div>
     </div>

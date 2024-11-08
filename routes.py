@@ -11,6 +11,8 @@ from utils.pdf_generator import generate_invoice_pdf, generate_report_pdf
 
 routes = Blueprint('routes', __name__)
 
+VALID_TERRITORIES = ['North', 'South']
+
 @routes.route('/')
 @login_required
 def dashboard():
@@ -35,8 +37,7 @@ def orders():
 @login_required
 def get_territories():
     try:
-        territories = db.session.query(Customer.territory).distinct().all()
-        return jsonify([t[0] for t in territories])
+        return jsonify(VALID_TERRITORIES)
     except SQLAlchemyError as e:
         return jsonify({'error': str(e)}), 500
 
@@ -173,7 +174,6 @@ def download_report():
         flash(f'Error generating report: {str(e)}', 'error')
         return redirect(url_for('routes.reports'))
 
-# Additional routes remain unchanged
 @routes.route('/api/customers')
 @login_required
 def get_customers():
@@ -306,6 +306,9 @@ def generate_invoice(order_id):
 def create_customer():
     try:
         data = request.json
+        if data['territory'] not in VALID_TERRITORIES:
+            return jsonify({'error': 'Invalid territory. Must be either North or South'}), 400
+            
         customer = Customer(
             name=data['name'],
             address=data['address'],
@@ -326,6 +329,9 @@ def create_customer():
 def update_customer():
     try:
         data = request.json
+        if data['territory'] not in VALID_TERRITORIES:
+            return jsonify({'error': 'Invalid territory. Must be either North or South'}), 400
+            
         customer = Customer.query.get_or_404(data['id'])
         customer.name = data['name']
         customer.address = data['address']

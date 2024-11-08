@@ -1,6 +1,11 @@
 document.addEventListener('DOMContentLoaded', function() {
     // Create alert container at the start
     const container = document.querySelector('.container');
+    if (!container) {
+        console.error('Container element not found');
+        return;
+    }
+    
     const alertContainer = document.createElement('div');
     alertContainer.className = 'alert-container mb-3';
     container.insertBefore(alertContainer, container.firstChild);
@@ -9,6 +14,11 @@ document.addEventListener('DOMContentLoaded', function() {
     const dailyDriverExpense = document.getElementById('dailyDriverExpense');
     const addOrderBtn = document.getElementById('addOrderBtn');
     
+    if (!deliveryDate || !dailyDriverExpense || !addOrderBtn) {
+        console.error('Required elements not found');
+        return;
+    }
+
     // Initialize date picker with today's date
     deliveryDate.valueAsDate = new Date();
 
@@ -54,11 +64,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             
             alertContainer.appendChild(alertDiv);
-            setTimeout(() => {
-                if (alertDiv && alertDiv.parentNode === alertContainer) {
-                    alertDiv.remove();
-                }
-            }, 3000);
+            setTimeout(() => alertDiv.remove(), 3000);
         } catch (error) {
             console.error('Error showing alert:', error);
         }
@@ -72,54 +78,58 @@ document.addEventListener('DOMContentLoaded', function() {
                 render: function(data, type, row) {
                     if (type === 'display' && row.isEditable) {
                         return `<input type="number" class="form-control form-control-sm cases-input" 
-                               value="${data || 0}" min="0" style="width: 80px">`;
+                               value="${parseInt(data) || 0}" min="0" style="width: 80px">`;
                     }
-                    return data || 0;
+                    return parseInt(data) || 0;
                 }
             },
             { 
                 data: 'total_cost',
                 render: function(data, type, row) {
+                    const value = parseFloat(data) || 0;
                     if (type === 'display' && row.isEditable) {
                         return `<input type="number" class="form-control form-control-sm cost-input" 
-                               value="${parseFloat(data || 0).toFixed(2)}" min="0" step="0.01" style="width: 100px">`;
+                               value="${value.toFixed(2)}" min="0" step="0.01" style="width: 100px">`;
                     }
-                    return `$${parseFloat(data || 0).toFixed(2)}`;
+                    return `$${value.toFixed(2)}`;
                 }
             },
             { 
                 data: 'payment_cash',
                 render: function(data, type, row) {
+                    const value = parseFloat(data) || 0;
                     if (type === 'display' && row.isEditable) {
                         return `<input type="number" class="form-control form-control-sm payment-input cash-input" 
-                               value="${parseFloat(data || 0).toFixed(2)}" min="0" step="0.01" style="width: 100px">`;
+                               value="${value.toFixed(2)}" min="0" step="0.01" style="width: 100px">`;
                     }
-                    return `$${parseFloat(data || 0).toFixed(2)}`;
+                    return `$${value.toFixed(2)}`;
                 }
             },
             { 
                 data: 'payment_check',
                 render: function(data, type, row) {
+                    const value = parseFloat(data) || 0;
                     if (type === 'display' && row.isEditable) {
                         return `<input type="number" class="form-control form-control-sm payment-input check-input" 
-                               value="${parseFloat(data || 0).toFixed(2)}" min="0" step="0.01" style="width: 100px">`;
+                               value="${value.toFixed(2)}" min="0" step="0.01" style="width: 100px">`;
                     }
-                    return `$${parseFloat(data || 0).toFixed(2)}`;
+                    return `$${value.toFixed(2)}`;
                 }
             },
             { 
                 data: 'payment_credit',
                 render: function(data, type, row) {
+                    const value = parseFloat(data) || 0;
                     if (type === 'display' && row.isEditable) {
                         return `<input type="number" class="form-control form-control-sm payment-input credit-input" 
-                               value="${parseFloat(data || 0).toFixed(2)}" min="0" step="0.01" style="width: 100px">`;
+                               value="${value.toFixed(2)}" min="0" step="0.01" style="width: 100px">`;
                     }
-                    return `$${parseFloat(data || 0).toFixed(2)}`;
+                    return `$${value.toFixed(2)}`;
                 }
             },
             {
                 data: 'payment_received',
-                render: value => `$${parseFloat(value || 0).toFixed(2)}`
+                render: value => `$${(parseFloat(value) || 0).toFixed(2)}`
             }
         ],
         language: {
@@ -133,28 +143,24 @@ document.addEventListener('DOMContentLoaded', function() {
                 const api = this.api();
                 // Calculate column totals
                 const totals = {
-                    cases: api.column(1, {page: 'current'}).data().reduce((a, b) => a + (parseInt(b) || 0), 0),
-                    cost: api.column(2, {page: 'current'}).data().reduce((a, b) => {
-                        const val = typeof b === 'string' ? b.replace('$', '') : b;
-                        return a + (parseFloat(val) || 0);
-                    }, 0),
-                    cash: api.column(3, {page: 'current'}).data().reduce((a, b) => {
-                        const val = typeof b === 'string' ? b.replace('$', '') : b;
-                        return a + (parseFloat(val) || 0);
-                    }, 0),
-                    check: api.column(4, {page: 'current'}).data().reduce((a, b) => {
-                        const val = typeof b === 'string' ? b.replace('$', '') : b;
-                        return a + (parseFloat(val) || 0);
-                    }, 0),
-                    credit: api.column(5, {page: 'current'}).data().reduce((a, b) => {
-                        const val = typeof b === 'string' ? b.replace('$', '') : b;
-                        return a + (parseFloat(val) || 0);
-                    }, 0),
-                    payments: api.column(6, {page: 'current'}).data().reduce((a, b) => {
-                        const val = typeof b === 'string' ? b.replace('$', '') : b;
-                        return a + (parseFloat(val) || 0);
-                    }, 0)
+                    cases: 0,
+                    cost: 0,
+                    cash: 0,
+                    check: 0,
+                    credit: 0,
+                    payments: 0
                 };
+
+                // Use visible rows only
+                api.rows({ page: 'current' }).every(function() {
+                    const row = this.data();
+                    totals.cases += parseInt(row.total_cases) || 0;
+                    totals.cost += parseFloat(row.total_cost) || 0;
+                    totals.cash += parseFloat(row.payment_cash) || 0;
+                    totals.check += parseFloat(row.payment_check) || 0;
+                    totals.credit += parseFloat(row.payment_credit) || 0;
+                    totals.payments += parseFloat(row.payment_received) || 0;
+                });
 
                 // Update summary elements
                 const updateElement = (id, value, isMonetary = true) => {
@@ -201,6 +207,12 @@ document.addEventListener('DOMContentLoaded', function() {
             const today = new Date().toISOString().split('T')[0];
             const processedData = data.map(order => ({
                 ...order,
+                total_cases: parseInt(order.total_cases) || 0,
+                total_cost: parseFloat(order.total_cost) || 0,
+                payment_cash: parseFloat(order.payment_cash) || 0,
+                payment_check: parseFloat(order.payment_check) || 0,
+                payment_credit: parseFloat(order.payment_credit) || 0,
+                payment_received: parseFloat(order.payment_received) || 0,
                 isEditable: deliveryDate.value === today
             }));
 
@@ -348,7 +360,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    document.getElementById('saveDriverExpense').addEventListener('click', saveDailyDriverExpense);
+    document.getElementById('saveDriverExpense')?.addEventListener('click', saveDailyDriverExpense);
 
     $('#ordersTable').on('change', 'input', async function() {
         try {

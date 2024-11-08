@@ -72,6 +72,32 @@ def get_territories():
         logger.error(f"Error getting territories: {str(e)}")
         return jsonify({'error': 'Internal server error'}), 500
 
+@routes.route('/api/customers')
+@login_required
+def get_customers():
+    try:
+        logger.info("Loading all customers")
+        customers = Customer.query.order_by(Customer.name).all()
+        
+        customers_data = [{
+            'id': customer.id,
+            'name': customer.name,
+            'address': customer.address,
+            'delivery_day': customer.delivery_day,
+            'account_type': customer.account_type,
+            'territory': customer.territory,
+            'balance': float(customer.balance or 0)
+        } for customer in customers]
+        
+        logger.info(f"Successfully retrieved {len(customers_data)} customers")
+        return jsonify(customers_data)
+    except SQLAlchemyError as e:
+        logger.error(f"Database error retrieving customers: {str(e)}")
+        return jsonify({'error': 'Database error occurred'}), 500
+    except Exception as e:
+        logger.error(f"Unexpected error retrieving customers: {str(e)}")
+        return jsonify({'error': 'Internal server error'}), 500
+
 @routes.route('/api/orders')
 @login_required
 def get_all_orders():

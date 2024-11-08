@@ -1,6 +1,12 @@
 document.addEventListener('DOMContentLoaded', function() {
     const deliveryDate = document.getElementById('deliveryDate');
     const dailyDriverExpense = document.getElementById('dailyDriverExpense');
+
+    // Create alert container
+    const container = document.querySelector('.container');
+    const alertContainer = document.createElement('div');
+    alertContainer.className = 'alert-container mb-3';
+    container.insertBefore(alertContainer, container.firstChild);
     
     const ordersTable = $('#ordersTable').DataTable({
         columns: [
@@ -235,6 +241,12 @@ document.addEventListener('DOMContentLoaded', function() {
             const today = new Date().toISOString().split('T')[0];
             const processedData = data.map(order => ({
                 ...order,
+                total_cases: parseInt(order.total_cases) || 0,
+                total_cost: parseFloat(order.total_cost) || 0,
+                payment_cash: parseFloat(order.payment_cash) || 0,
+                payment_check: parseFloat(order.payment_check) || 0,
+                payment_credit: parseFloat(order.payment_credit) || 0,
+                payment_received: parseFloat(order.payment_received) || 0,
                 isEditable: deliveryDate.value === today
             }));
             
@@ -316,35 +328,44 @@ document.addEventListener('DOMContentLoaded', function() {
                 throw new Error('Invalid orders data for totals calculation');
             }
 
-            const totals = orders.reduce((acc, order) => {
-                acc.cases += parseInt(order.total_cases) || 0;
-                acc.cost += parseFloat(order.total_cost) || 0;
-                acc.cashPayments += parseFloat(order.payment_cash) || 0;
-                acc.checkPayments += parseFloat(order.payment_check) || 0;
-                acc.creditPayments += parseFloat(order.payment_credit) || 0;
-                acc.totalPayments += parseFloat(order.payment_received) || 0;
-                return acc;
-            }, { 
-                cases: 0, 
-                cost: 0, 
+            const totals = orders.reduce((acc, order) => ({
+                cases: acc.cases + (parseInt(order.total_cases) || 0),
+                cost: acc.cost + (parseFloat(order.total_cost) || 0),
+                cashPayments: acc.cashPayments + (parseFloat(order.payment_cash) || 0),
+                checkPayments: acc.checkPayments + (parseFloat(order.payment_check) || 0),
+                creditPayments: acc.creditPayments + (parseFloat(order.payment_credit) || 0),
+                totalPayments: acc.totalPayments + (parseFloat(order.payment_received) || 0)
+            }), {
+                cases: 0,
+                cost: 0,
                 cashPayments: 0,
                 checkPayments: 0,
                 creditPayments: 0,
                 totalPayments: 0
             });
 
-            // Update summary cards
-            document.getElementById('totalCases').textContent = totals.cases;
-            document.getElementById('totalCost').textContent = `$${totals.cost.toFixed(2)}`;
-            document.getElementById('totalPayments').textContent = `$${totals.totalPayments.toFixed(2)}`;
+            // Safely update DOM elements
+            const updateElement = (id, value) => {
+                const element = document.getElementById(id);
+                if (element) {
+                    if (id === 'totalCases' || id === 'tableTotalCases') {
+                        element.textContent = value;
+                    } else {
+                        element.textContent = `$${parseFloat(value).toFixed(2)}`;
+                    }
+                }
+            };
 
-            // Update table totals
-            document.getElementById('tableTotalCases').textContent = totals.cases;
-            document.getElementById('tableTotalCost').textContent = `$${totals.cost.toFixed(2)}`;
-            document.getElementById('totalCashPayments').textContent = `$${totals.cashPayments.toFixed(2)}`;
-            document.getElementById('totalCheckPayments').textContent = `$${totals.checkPayments.toFixed(2)}`;
-            document.getElementById('totalCreditPayments').textContent = `$${totals.creditPayments.toFixed(2)}`;
-            document.getElementById('tableTotalPayments').textContent = `$${totals.totalPayments.toFixed(2)}`;
+            updateElement('totalCases', totals.cases);
+            updateElement('totalCost', totals.cost);
+            updateElement('totalPayments', totals.totalPayments);
+            updateElement('tableTotalCases', totals.cases);
+            updateElement('tableTotalCost', totals.cost);
+            updateElement('totalCashPayments', totals.cashPayments);
+            updateElement('totalCheckPayments', totals.checkPayments);
+            updateElement('totalCreditPayments', totals.creditPayments);
+            updateElement('tableTotalPayments', totals.totalPayments);
+
         } catch (error) {
             console.error('Error updating totals:', error);
             showError('Failed to update totals: ' + error.message);
@@ -358,8 +379,12 @@ document.addEventListener('DOMContentLoaded', function() {
             ${message}
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         `;
-        document.querySelector('.container').insertBefore(alertDiv, document.querySelector('.card'));
-        setTimeout(() => alertDiv.remove(), 5000);
+        document.querySelector('.alert-container').appendChild(alertDiv);
+        setTimeout(() => {
+            if (alertDiv && alertDiv.parentNode) {
+                alertDiv.remove();
+            }
+        }, 5000);
     }
 
     function showSuccess(message) {
@@ -369,8 +394,12 @@ document.addEventListener('DOMContentLoaded', function() {
             ${message}
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         `;
-        document.querySelector('.container').insertBefore(alertDiv, document.querySelector('.card'));
-        setTimeout(() => alertDiv.remove(), 3000);
+        document.querySelector('.alert-container').appendChild(alertDiv);
+        setTimeout(() => {
+            if (alertDiv && alertDiv.parentNode) {
+                alertDiv.remove();
+            }
+        }, 3000);
     }
 
     // Initial setup

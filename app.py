@@ -4,6 +4,7 @@ from flask import Flask, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy.exc import SQLAlchemyError, OperationalError, DatabaseError
+from sqlalchemy import text
 import time
 
 # Configure logging
@@ -45,7 +46,7 @@ def init_database():
             with app.app_context():
                 db.engine.connect()
                 # Test query to verify connection
-                db.session.execute('SELECT 1')
+                db.session.execute(text('SELECT 1'))
                 db.session.commit()
             logger.info("Database connection successful")
             return True

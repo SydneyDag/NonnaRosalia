@@ -49,7 +49,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 data: null,
                 render: function(data) {
                     const balance = parseFloat(data.total_cost) - parseFloat(data.payment_received);
-                    return balance > 0 ? 'open' : 'closed';
+                    return balance > 0 ? 'OPEN' : 'CLOSED';
                 }
             },
             {
@@ -57,9 +57,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 render: function(data) {
                     return `
                         <button class="btn btn-sm btn-primary edit-order" data-id="${data}">Edit</button>
-                        <button class="btn btn-sm btn-info" onclick="window.location.href='/generate_invoice/${data}'">
-                            Invoice
-                        </button>
+                        <a href="/invoice/${data}" class="btn btn-sm btn-info">Invoice</a>
                     `;
                 }
             }
@@ -114,7 +112,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     $('#statusFilter').on('change', function() {
-        ordersTable.column(7).search(this.value).draw();
+        ordersTable.column(7).search(this.value.toUpperCase()).draw();
     });
 
     $('#dateRangeStart, #dateRangeEnd').on('change', function() {

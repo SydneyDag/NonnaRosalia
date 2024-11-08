@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request, jsonify, flash, send_file
+from flask import Blueprint, render_template, request, jsonify, flash, send_file, redirect, url_for
 from flask_login import login_required
 from models import Customer, Order, db
 from datetime import datetime, timedelta
@@ -194,6 +194,31 @@ def create_order():
     except Exception as e:
         db.session.rollback()
         return jsonify({'error': str(e)}), 400
+
+@routes.route('/invoice/<int:order_id>')
+@login_required
+def generate_invoice(order_id):
+    try:
+        order = Order.query.get_or_404(order_id)
+        customer = Customer.query.get_or_404(order.customer_id)
+        
+        # Generate a unique filename for the invoice
+        filename = f"invoice_{order_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+        filepath = os.path.join("/tmp", filename)
+        
+        # Generate the PDF
+        generate_invoice_pdf(order, customer, filepath)
+        
+        # Send the file to the client
+        return send_file(
+            filepath,
+            mimetype='application/pdf',
+            as_attachment=True,
+            download_name=f"invoice_{order_id}.pdf"
+        )
+    except Exception as e:
+        flash(f'Error generating invoice: {str(e)}', 'error')
+        return redirect(url_for('routes.orders'))
 
 # Create test customers
 def create_test_customers():

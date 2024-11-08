@@ -18,9 +18,11 @@
                         <th>Delivery Date</th>
                         <th>Cases</th>
                         <th>Total Cost</th>
-                        <th>Payment</th>
+                        <th>Cash</th>
+                        <th>Check</th>
+                        <th>Credit</th>
+                        <th>Total Payment</th>
                         <th>Driver Expense</th>
-                        <th>Status</th>
                         <th>Actions</th>
                     </tr>
                 </thead>
@@ -86,19 +88,10 @@
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Driver Expense</label>
-                        <input type="number" class="form-control" id="driverExpense" min="0" step="0.01" value="0">
-                    </div>
-                    <div class="mb-3 form-check">
-                        <input type="checkbox" class="form-check-input" id="isOneTimeDelivery">
-                        <label class="form-check-label" for="isOneTimeDelivery">One-time Delivery</label>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Status</label>
-                        <select class="form-control" id="orderStatus">
-                            <option value="pending">Pending</option>
-                            <option value="delivered">Delivered</option>
-                            <option value="cancelled">Cancelled</option>
-                        </select>
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text">$</span>
+                            <input type="number" class="form-control" id="driverExpense" min="0" step="0.01" value="0">
+                        </div>
                     </div>
                 </form>
             </div>

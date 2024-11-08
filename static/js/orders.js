@@ -7,7 +7,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 className: 'btn btn-secondary',
                 action: function () {
                     $('#customerFilter').val('');
-                    $('#statusFilter').val('');
                     $('#dateRangeStart').val('');
                     $('#dateRangeEnd').val('');
                     ordersTable.search('').columns().search('').draw();
@@ -29,12 +28,57 @@ document.addEventListener('DOMContentLoaded', function() {
                     return new Date(data).toLocaleDateString();
                 }
             },
-            { data: 'total_cases' },
             { 
-                data: 'total_cost',
-                render: value => `$${parseFloat(value).toFixed(2)}`
+                data: 'total_cases',
+                render: function(data, type, row) {
+                    if (type === 'display' && row.isEditable) {
+                        return `<input type="number" class="form-control form-control-sm cases-input" 
+                               value="${data}" min="0" style="width: 80px">`;
+                    }
+                    return data;
+                }
             },
             { 
+                data: 'total_cost',
+                render: function(data, type, row) {
+                    if (type === 'display' && row.isEditable) {
+                        return `<input type="number" class="form-control form-control-sm cost-input" 
+                               value="${parseFloat(data).toFixed(2)}" min="0" step="0.01" style="width: 100px">`;
+                    }
+                    return `$${parseFloat(data).toFixed(2)}`;
+                }
+            },
+            { 
+                data: 'payment_cash',
+                render: function(data, type, row) {
+                    if (type === 'display' && row.isEditable) {
+                        return `<input type="number" class="form-control form-control-sm payment-input cash-input" 
+                               value="${parseFloat(data).toFixed(2)}" min="0" step="0.01" style="width: 100px">`;
+                    }
+                    return `$${parseFloat(data).toFixed(2)}`;
+                }
+            },
+            { 
+                data: 'payment_check',
+                render: function(data, type, row) {
+                    if (type === 'display' && row.isEditable) {
+                        return `<input type="number" class="form-control form-control-sm payment-input check-input" 
+                               value="${parseFloat(data).toFixed(2)}" min="0" step="0.01" style="width: 100px">`;
+                    }
+                    return `$${parseFloat(data).toFixed(2)}`;
+                }
+            },
+            { 
+                data: 'payment_credit',
+                render: function(data, type, row) {
+                    if (type === 'display' && row.isEditable) {
+                        return `<input type="number" class="form-control form-control-sm payment-input credit-input" 
+                               value="${parseFloat(data).toFixed(2)}" min="0" step="0.01" style="width: 100px">`;
+                    }
+                    return `$${parseFloat(data).toFixed(2)}`;
+                }
+            },
+            {
                 data: 'payment_received',
                 render: value => `$${parseFloat(value).toFixed(2)}`
             },
@@ -42,38 +86,32 @@ document.addEventListener('DOMContentLoaded', function() {
                 data: 'driver_expense',
                 render: value => `$${parseFloat(value).toFixed(2)}`
             },
-            { data: 'status' },
             {
                 data: 'id',
                 render: function(data, type, row) {
-                    return `
-                        <button class="btn btn-sm btn-primary edit-order" data-id="${data}">Edit</button>
-                        <button class="btn btn-sm btn-secondary update-status" data-id="${data}">
-                            ${row.status === 'pending' ? 'Mark Delivered' : 'Update Status'}
-                        </button>
-                    `;
+                    if (row.isEditable) {
+                        return `<button class="btn btn-sm btn-primary edit-order" data-id="${data}">Edit</button>`;
+                    }
+                    return `<button class="btn btn-sm btn-secondary view-order" data-id="${data}">View</button>`;
                 }
             }
-        ]
+        ],
+        createdRow: function(row, data) {
+            if (!data.isEditable) {
+                $(row).addClass('text-muted');
+            }
+        }
     });
 
     // Add filter controls above the table
     $('.card-body').prepend(`
         <div class="row mb-3">
-            <div class="col-md-3">
+            <div class="col-md-4">
                 <select id="customerFilter" class="form-select">
                     <option value="">All Customers</option>
                 </select>
             </div>
-            <div class="col-md-3">
-                <select id="statusFilter" class="form-select">
-                    <option value="">All Statuses</option>
-                    <option value="pending">Pending</option>
-                    <option value="delivered">Delivered</option>
-                    <option value="cancelled">Cancelled</option>
-                </select>
-            </div>
-            <div class="col-md-6">
+            <div class="col-md-8">
                 <div class="input-group">
                     <input type="date" class="form-control" id="dateRangeStart">
                     <span class="input-group-text">to</span>
@@ -103,10 +141,6 @@ document.addEventListener('DOMContentLoaded', function() {
     // Add filter event listeners
     $('#customerFilter').on('change', function() {
         ordersTable.column(0).search($(this).find('option:selected').text()).draw();
-    });
-
-    $('#statusFilter').on('change', function() {
-        ordersTable.column(7).search(this.value).draw();
     });
 
     $('#dateRangeStart, #dateRangeEnd').on('change', function() {
@@ -152,9 +186,38 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
+    // Event delegation for input changes in the table
+    $('#ordersTable').on('change', 'input', function() {
+        const row = $(this).closest('tr');
+        const data = ordersTable.row(row).data();
+        const updatedData = collectRowData(row, data);
+        
+        fetch('/api/orders/' + data.id, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(updatedData)
+        })
+        .then(response => response.json())
+        .then(() => {
+            loadOrders();
+        });
+    });
+
+    function collectRowData(row, originalData) {
+        return {
+            id: originalData.id,
+            total_cases: parseInt(row.find('.cases-input').val()) || 0,
+            total_cost: parseFloat(row.find('.cost-input').val()) || 0,
+            payment_cash: parseFloat(row.find('.cash-input').val()) || 0,
+            payment_check: parseFloat(row.find('.check-input').val()) || 0,
+            payment_credit: parseFloat(row.find('.credit-input').val()) || 0
+        };
+    }
+
     // Save order
     document.getElementById('saveOrder').addEventListener('click', function() {
-        const orderId = document.getElementById('orderId').value;
         const orderData = {
             customer_id: document.getElementById('customerId').value,
             delivery_date: document.getElementById('deliveryDate').value,
@@ -164,16 +227,11 @@ document.addEventListener('DOMContentLoaded', function() {
             payment_check: parseFloat(document.getElementById('paymentCheck').value) || 0,
             payment_credit: parseFloat(document.getElementById('paymentCredit').value) || 0,
             payment_received: parseFloat(document.getElementById('paymentReceived').value) || 0,
-            driver_expense: parseFloat(document.getElementById('driverExpense').value) || 0,
-            is_one_time_delivery: document.getElementById('isOneTimeDelivery').checked,
-            status: document.getElementById('orderStatus').value
+            driver_expense: parseFloat(document.getElementById('driverExpense').value) || 0
         };
 
-        const method = orderId ? 'PUT' : 'POST';
-        if (orderId) orderData.id = orderId;
-
         fetch('/orders', {
-            method: method,
+            method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
@@ -183,51 +241,50 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(() => {
             $('#orderModal').modal('hide');
             loadOrders();
+        })
+        .catch(error => {
+            console.error('Error saving order:', error);
+            alert('Error saving order. Please try again.');
         });
     });
 
     // Edit order
     $('#ordersTable').on('click', '.edit-order', function() {
         const row = ordersTable.row($(this).parents('tr')).data();
-        document.getElementById('orderId').value = row.id;
-        document.getElementById('customerId').value = row.customer_id;
-        document.getElementById('deliveryDate').value = new Date(row.delivery_date).toISOString().split('T')[0];
-        document.getElementById('totalCases').value = row.total_cases;
-        document.getElementById('totalCost').value = row.total_cost;
-        document.getElementById('paymentCash').value = row.payment_cash || 0;
-        document.getElementById('paymentCheck').value = row.payment_check || 0;
-        document.getElementById('paymentCredit').value = row.payment_credit || 0;
-        document.getElementById('paymentReceived').value = row.payment_received || 0;
-        document.getElementById('driverExpense').value = row.driver_expense || 0;
-        document.getElementById('isOneTimeDelivery').checked = row.is_one_time_delivery;
-        document.getElementById('orderStatus').value = row.status;
-        $('#orderModal').modal('show');
+        populateModal(row);
     });
 
-    // Update status
-    $('#ordersTable').on('click', '.update-status', function() {
+    // View order (read-only)
+    $('#ordersTable').on('click', '.view-order', function() {
         const row = ordersTable.row($(this).parents('tr')).data();
-        const newStatus = row.status === 'pending' ? 'delivered' : 'pending';
-        
-        fetch('/orders', {
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                id: row.id,
-                status: newStatus
-            })
-        })
-        .then(response => response.json())
-        .then(() => {
-            loadOrders();
-        });
+        populateModal(row, true);
     });
+
+    function populateModal(data, readOnly = false) {
+        document.getElementById('orderId').value = data.id;
+        document.getElementById('customerId').value = data.customer_id;
+        document.getElementById('deliveryDate').value = new Date(data.delivery_date).toISOString().split('T')[0];
+        document.getElementById('totalCases').value = data.total_cases;
+        document.getElementById('totalCost').value = data.total_cost;
+        document.getElementById('paymentCash').value = data.payment_cash || 0;
+        document.getElementById('paymentCheck').value = data.payment_check || 0;
+        document.getElementById('paymentCredit').value = data.payment_credit || 0;
+        document.getElementById('paymentReceived').value = data.payment_received || 0;
+        document.getElementById('driverExpense').value = data.driver_expense || 0;
+
+        // Handle read-only mode
+        const inputs = document.querySelectorAll('#orderForm input, #orderForm select');
+        inputs.forEach(input => {
+            input.disabled = readOnly;
+        });
+        document.getElementById('saveOrder').style.display = readOnly ? 'none' : 'block';
+
+        $('#orderModal').modal('show');
+    }
 
     // Reset form when modal is opened for new order
     $('#orderModal').on('show.bs.modal', function(e) {
-        if (!e.relatedTarget?.closest('.edit-order')) {
+        if (!e.relatedTarget?.closest('.edit-order') && !e.relatedTarget?.closest('.view-order')) {
             document.getElementById('orderForm').reset();
             document.getElementById('orderId').value = '';
             document.getElementById('deliveryDate').valueAsDate = new Date();
@@ -236,7 +293,13 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('paymentCredit').value = '0';
             document.getElementById('paymentReceived').value = '0';
             document.getElementById('driverExpense').value = '0';
-            document.getElementById('isOneTimeDelivery').checked = false;
+
+            // Enable all inputs for new order
+            const inputs = document.querySelectorAll('#orderForm input, #orderForm select');
+            inputs.forEach(input => {
+                input.disabled = false;
+            });
+            document.getElementById('saveOrder').style.display = 'block';
         }
     });
 
@@ -244,11 +307,17 @@ document.addEventListener('DOMContentLoaded', function() {
         const startDate = document.getElementById('dateRangeStart').value;
         const endDate = document.getElementById('dateRangeEnd').value;
         const dateToUse = startDate || endDate || new Date().toISOString().split('T')[0];
+        const today = new Date().toISOString().split('T')[0];
         
         fetch(`/api/orders/${dateToUse}`)
             .then(response => response.json())
             .then(data => {
-                ordersTable.clear().rows.add(data).draw();
+                // Mark orders as editable if they're for today
+                const processedData = data.map(order => ({
+                    ...order,
+                    isEditable: order.delivery_date.split('T')[0] === today
+                }));
+                ordersTable.clear().rows.add(processedData).draw();
             });
     }
 

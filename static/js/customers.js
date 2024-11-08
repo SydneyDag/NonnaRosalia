@@ -57,7 +57,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 <select id="accountTypeFilter" class="form-select">
                     <option value="">All Account Types</option>
                     <option value="Regular">Regular</option>
-                    <option value="Premium">Premium</option>
+                    <option value="Corporate">Corporate</option>
                 </select>
             </div>
         </div>

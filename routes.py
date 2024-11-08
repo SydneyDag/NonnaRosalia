@@ -4,43 +4,16 @@ from models import Customer, Order, db
 from datetime import datetime, timedelta
 from decimal import Decimal
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy import func, and_, text
+from sqlalchemy import func, and_
 import os
 import re
 import logging
+from utils.pdf_generator import generate_invoice_pdf, generate_report_pdf
 
 logger = logging.getLogger(__name__)
 routes = Blueprint('routes', __name__)
 
 VALID_TERRITORIES = ['North', 'South']
-
-@routes.route('/api/health')
-def health_check():
-    """Health check endpoint to verify database connectivity"""
-    try:
-        logger.info("Performing health check")
-        db.session.execute(text('SELECT 1'))
-        db.session.commit()
-        return jsonify({
-            'status': 'healthy',
-            'database': 'connected',
-            'timestamp': datetime.now().isoformat()
-        })
-    except SQLAlchemyError as e:
-        logger.error(f"Database health check failed: {str(e)}")
-        return jsonify({
-            'status': 'unhealthy',
-            'database': 'disconnected',
-            'error': str(e),
-            'timestamp': datetime.now().isoformat()
-        }), 500
-    except Exception as e:
-        logger.error(f"Health check failed: {str(e)}")
-        return jsonify({
-            'status': 'error',
-            'error': str(e),
-            'timestamp': datetime.now().isoformat()
-        }), 500
 
 @routes.route('/')
 @login_required
@@ -70,32 +43,6 @@ def get_territories():
         return jsonify(VALID_TERRITORIES)
     except Exception as e:
         logger.error(f"Error getting territories: {str(e)}")
-        return jsonify({'error': 'Internal server error'}), 500
-
-@routes.route('/api/customers')
-@login_required
-def get_customers():
-    try:
-        logger.info("Loading all customers")
-        customers = Customer.query.order_by(Customer.name).all()
-        
-        customers_data = [{
-            'id': customer.id,
-            'name': customer.name,
-            'address': customer.address,
-            'delivery_day': customer.delivery_day,
-            'account_type': customer.account_type,
-            'territory': customer.territory,
-            'balance': float(customer.balance or 0)
-        } for customer in customers]
-        
-        logger.info(f"Successfully retrieved {len(customers_data)} customers")
-        return jsonify(customers_data)
-    except SQLAlchemyError as e:
-        logger.error(f"Database error retrieving customers: {str(e)}")
-        return jsonify({'error': 'Database error occurred'}), 500
-    except Exception as e:
-        logger.error(f"Unexpected error retrieving customers: {str(e)}")
         return jsonify({'error': 'Internal server error'}), 500
 
 @routes.route('/api/orders')
@@ -134,34 +81,94 @@ def get_orders_by_date(date):
     try:
         logger.info(f"Loading orders for date: {date}")
         delivery_date = datetime.strptime(date, '%Y-%m-%d').date()
+        weekday = delivery_date.strftime('%A')
         
         orders = Order.query.join(Customer).filter(
-            Order.delivery_date == delivery_date
+            Order.delivery_date == delivery_date,
+            Customer.delivery_day == weekday
         ).all()
+        
+        if delivery_date == datetime.now().date() and not orders:
+            logger.info(f"No orders found for today ({date}). Creating empty orders for scheduled customers.")
+            scheduled_customers = Customer.query.filter_by(delivery_day=weekday).all()
+            
+            for customer in scheduled_customers:
+                order = Order(
+                    customer_id=customer.id,
+                    order_date=delivery_date,
+                    delivery_date=delivery_date,
+                    total_cases=0,
+                    total_cost=0,
+                    payment_cash=0,
+                    payment_check=0,
+                    payment_credit=0,
+                    payment_received=0,
+                    driver_expense=0
+                )
+                db.session.add(order)
+            
+            try:
+                db.session.commit()
+                logger.info(f"Created {len(scheduled_customers)} empty orders for {date}")
+            except SQLAlchemyError as e:
+                logger.error(f"Error creating empty orders: {str(e)}")
+                db.session.rollback()
+                raise
+            
+            orders = Order.query.join(Customer).filter(
+                Order.delivery_date == delivery_date,
+                Customer.delivery_day == weekday
+            ).all()
         
         orders_data = [{
             'id': order.id,
             'customer_id': order.customer_id,
             'customer_name': order.customer.name,
+            'order_date': order.order_date.isoformat(),
+            'delivery_date': order.delivery_date.isoformat(),
             'total_cases': order.total_cases or 0,
             'total_cost': float(order.total_cost or 0),
             'payment_cash': float(order.payment_cash or 0),
             'payment_check': float(order.payment_check or 0),
             'payment_credit': float(order.payment_credit or 0),
-            'payment_received': float(order.payment_received or 0),
-            'isEditable': delivery_date == datetime.now().date()
+            'payment_received': float(order.payment_received or 0)
         } for order in orders]
         
-        logger.info(f"Retrieved {len(orders_data)} orders for {date}")
+        logger.info(f"Successfully retrieved {len(orders_data)} orders for {date}")
         return jsonify(orders_data)
     except ValueError as e:
-        logger.error(f"Invalid date format: {str(e)}")
+        logger.error(f"Invalid date format in orders request: {str(e)}")
         return jsonify({'error': 'Invalid date format'}), 400
     except SQLAlchemyError as e:
-        logger.error(f"Database error retrieving orders by date: {str(e)}")
+        logger.error(f"Database error retrieving orders: {str(e)}")
         return jsonify({'error': 'Database error occurred'}), 500
     except Exception as e:
-        logger.error(f"Unexpected error retrieving orders by date: {str(e)}")
+        logger.error(f"Unexpected error retrieving orders: {str(e)}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@routes.route('/api/customers')
+@login_required
+def get_customers():
+    try:
+        logger.info("Loading all customers")
+        customers = Customer.query.all()
+        customers_data = [{
+            'id': c.id,
+            'name': c.name,
+            'address': c.address,
+            'delivery_day': c.delivery_day,
+            'account_type': c.account_type,
+            'territory': c.territory,
+            'balance': float(c.balance or 0)
+        } for c in customers]
+        
+        logger.info(f"Successfully retrieved {len(customers_data)} customers")
+        return jsonify(customers_data)
+    except SQLAlchemyError as e:
+        logger.error(f"Database error retrieving customers: {str(e)}")
+        return jsonify({'error': 'Database error occurred'}), 500
+    except Exception as e:
+        logger.error(f"Unexpected error retrieving customers: {str(e)}")
         return jsonify({'error': 'Internal server error'}), 500
 
 @routes.route('/api/orders/<int:order_id>', methods=['PUT'])
@@ -170,15 +177,7 @@ def update_order(order_id):
     try:
         logger.info(f"Updating order {order_id}")
         data = request.json
-        if not data:
-            raise ValueError("No data provided")
-            
         order = Order.query.get_or_404(order_id)
-        
-        # Only allow updates to current day orders
-        if order.delivery_date != datetime.now().date():
-            logger.warning(f"Attempted to update past order: {order_id}")
-            return jsonify({'error': 'Cannot modify past orders'}), 403
         
         if 'total_cases' in data:
             order.total_cases = data['total_cases']
@@ -194,13 +193,18 @@ def update_order(order_id):
             
         order.payment_received = (order.payment_cash or 0) + (order.payment_check or 0) + (order.payment_credit or 0)
         
+        customer = order.customer
+        old_balance = float(customer.balance or 0)
+        new_balance = old_balance + (float(order.total_cost or 0) - float(order.payment_received or 0))
+        customer.balance = new_balance
+        
         db.session.commit()
         logger.info(f"Successfully updated order {order_id}")
         return jsonify({'success': True})
     except ValueError as e:
         logger.error(f"Invalid data format in order update: {str(e)}")
         db.session.rollback()
-        return jsonify({'error': str(e)}), 400
+        return jsonify({'error': 'Invalid data format'}), 400
     except SQLAlchemyError as e:
         logger.error(f"Database error updating order: {str(e)}")
         db.session.rollback()
@@ -210,154 +214,88 @@ def update_order(order_id):
         db.session.rollback()
         return jsonify({'error': 'Internal server error'}), 500
 
-@routes.route('/api/daily_driver_expense/<date>', methods=['GET'])
+@routes.route('/orders', methods=['POST'])
 @login_required
-def get_daily_driver_expense(date):
+def create_order():
     try:
-        logger.info(f"Loading driver expense for date: {date}")
-        delivery_date = datetime.strptime(date, '%Y-%m-%d').date()
-        
-        total_expense = db.session.query(func.sum(Order.driver_expense))\
-            .filter(Order.delivery_date == delivery_date)\
-            .scalar() or 0
-            
-        logger.info(f"Retrieved driver expense for {date}: ${float(total_expense):.2f}")
-        return jsonify({'amount': float(total_expense)})
-    except ValueError as e:
-        logger.error(f"Invalid date format in driver expense request: {str(e)}")
-        return jsonify({'error': 'Invalid date format'}), 400
-    except SQLAlchemyError as e:
-        logger.error(f"Database error retrieving driver expense: {str(e)}")
-        return jsonify({'error': 'Database error occurred'}), 500
-    except Exception as e:
-        logger.error(f"Unexpected error retrieving driver expense: {str(e)}")
-        return jsonify({'error': 'Internal server error'}), 500
-
-@routes.route('/api/daily_driver_expense', methods=['POST'])
-@login_required
-def save_daily_driver_expense():
-    try:
+        logger.info("Creating new order")
         data = request.json
-        if not data or 'date' not in data or 'amount' not in data:
-            raise ValueError("Missing required fields: date and amount")
-            
-        logger.info(f"Saving driver expense for date: {data['date']}")
-        delivery_date = datetime.strptime(data['date'], '%Y-%m-%d').date()
-        amount = Decimal(str(data['amount']))
+        delivery_date = datetime.strptime(data['delivery_date'], '%Y-%m-%d').date()
         
-        orders = Order.query.filter(Order.delivery_date == delivery_date).all()
-        if not orders:
-            logger.warning(f"No orders found for date {data['date']}")
-            return jsonify({'error': 'No orders found for this date'}), 404
-            
-        per_order_expense = amount / len(orders)
-        for order in orders:
-            order.driver_expense = per_order_expense
+        order = Order(
+            customer_id=data['customer_id'],
+            order_date=delivery_date,
+            delivery_date=delivery_date,
+            total_cases=0,
+            total_cost=0,
+            payment_cash=0,
+            payment_check=0,
+            payment_credit=0,
+            payment_received=0,
+            driver_expense=0
+        )
         
+        db.session.add(order)
         db.session.commit()
-        logger.info(f"Updated driver expense for {len(orders)} orders on {data['date']}")
-        return jsonify({'success': True})
-            
+        logger.info(f"Created new order {order.id} for customer {data['customer_id']}")
+        return jsonify({'success': True, 'id': order.id})
     except ValueError as e:
-        logger.error(f"Invalid data format in driver expense update: {str(e)}")
+        logger.error(f"Invalid data format in order creation: {str(e)}")
         db.session.rollback()
-        return jsonify({'error': str(e)}), 400
+        return jsonify({'error': 'Invalid data format'}), 400
     except SQLAlchemyError as e:
-        logger.error(f"Database error updating driver expense: {str(e)}")
+        logger.error(f"Database error creating order: {str(e)}")
         db.session.rollback()
         return jsonify({'error': 'Database error occurred'}), 500
     except Exception as e:
-        logger.error(f"Unexpected error updating driver expense: {str(e)}")
+        logger.error(f"Unexpected error creating order: {str(e)}")
         db.session.rollback()
         return jsonify({'error': 'Internal server error'}), 500
 
-@routes.route('/api/reports')
-@login_required
-def get_report_data():
+def create_test_data():
+    """Create initial test data for customers and orders."""
     try:
-        # Add default dates if not provided
-        start_date = request.args.get('start_date')
-        end_date = request.args.get('end_date')
-        if not start_date or not end_date:
-            today = datetime.now().date()
-            start_date = today.replace(day=1).isoformat()
-            end_date = today.isoformat()
-        else:
-            start_date = datetime.strptime(start_date, '%Y-%m-%d').date()
-            end_date = datetime.strptime(end_date, '%Y-%m-%d').date()
-
-        territory = request.args.get('territory')
-        logger.info(f"Generating report from {start_date} to {end_date}, territory: {territory or 'All'}")
-
-        # Base query with error handling
-        query = db.session.query(
-            Order.delivery_date,
-            func.coalesce(func.sum(Order.total_cases), 0).label('total_cases'),
-            func.coalesce(func.sum(Order.total_cost), 0).label('total_cost'),
-            func.coalesce(func.sum(Order.payment_cash), 0).label('payment_cash'),
-            func.coalesce(func.sum(Order.payment_check), 0).label('payment_check'),
-            func.coalesce(func.sum(Order.payment_credit), 0).label('payment_credit'),
-            func.coalesce(func.sum(Order.payment_received), 0).label('payment_received')
-        ).join(Customer)
-
-        query = query.filter(Order.delivery_date.between(start_date, end_date))
-        if territory:
-            query = query.filter(Customer.territory == territory)
-
-        query = query.group_by(Order.delivery_date)
-        daily_totals = query.all()
-
-        if not daily_totals:
-            logger.info("No data found for the specified criteria")
-            return jsonify({
-                'orders': [],
-                'summary': {
-                    'total_orders': 0,
-                    'total_cases': 0,
-                    'total_revenue': 0,
-                    'total_payments': 0,
-                    'outstanding_balance': 0
-                }
-            })
-
-        # Format response with proper error handling
-        orders_data = []
-        for day in daily_totals:
-            try:
-                orders_data.append({
-                    'delivery_date': day.delivery_date.isoformat(),
-                    'total_cases': int(day.total_cases or 0),
-                    'total_cost': float(day.total_cost or 0),
-                    'payment_cash': float(day.payment_cash or 0),
-                    'payment_check': float(day.payment_check or 0),
-                    'payment_credit': float(day.payment_credit or 0),
-                    'payment_received': float(day.payment_received or 0),
-                    'outstanding': float(day.total_cost or 0) - float(day.payment_received or 0)
-                })
-            except (TypeError, ValueError) as e:
-                logger.error(f"Error processing day {day.delivery_date}: {str(e)}")
-                continue
-
-        summary = {
-            'total_orders': len(daily_totals),
-            'total_cases': sum(int(day.total_cases or 0) for day in daily_totals),
-            'total_revenue': sum(float(day.total_cost or 0) for day in daily_totals),
-            'total_payments': sum(float(day.payment_received or 0) for day in daily_totals),
-            'outstanding_balance': sum(float(day.total_cost or 0) - float(day.payment_received or 0) for day in daily_totals)
-        }
-
-        logger.info(f"Report generated successfully: {summary['total_orders']} orders, ${summary['total_revenue']:.2f} revenue")
-        return jsonify({
-            'orders': orders_data,
-            'summary': summary
-        })
-
-    except ValueError as e:
-        logger.error(f"Invalid date format in report request: {str(e)}")
-        return jsonify({'error': 'Invalid date format'}), 400
+        logger.info("Creating test data...")
+        
+        # Create test customers
+        customers = [
+            Customer(name="North Store", address="123 North St", delivery_day="Monday", account_type="Regular", territory="North"),
+            Customer(name="South Market", address="456 South Ave", delivery_day="Wednesday", account_type="Corporate", territory="South"),
+            Customer(name="Downtown Shop", address="789 Main St", delivery_day="Friday", account_type="Regular", territory="North")
+        ]
+        
+        if Customer.query.count() == 0:
+            logger.info("No customers found. Adding test customers...")
+            for customer in customers:
+                db.session.add(customer)
+            db.session.commit()
+            logger.info(f"Added {len(customers)} test customers successfully")
+        
+        # Create some test orders for today
+        today = datetime.now().date()
+        if Order.query.filter(Order.delivery_date == today).count() == 0:
+            logger.info(f"No orders found for {today}. Adding test orders...")
+            for customer in Customer.query.all():
+                order = Order(
+                    customer_id=customer.id,
+                    order_date=today,
+                    delivery_date=today,
+                    total_cases=10,
+                    total_cost=100.00,
+                    payment_cash=25.00,
+                    payment_check=25.00,
+                    payment_credit=25.00,
+                    payment_received=75.00
+                )
+                db.session.add(order)
+            db.session.commit()
+            logger.info("Test orders created successfully")
+            
     except SQLAlchemyError as e:
-        logger.error(f"Database error generating report: {str(e)}")
-        return jsonify({'error': 'Database error occurred'}), 500
+        logger.error(f"Database error during test data creation: {str(e)}")
+        db.session.rollback()
+        raise
     except Exception as e:
-        logger.error(f"Unexpected error generating report: {str(e)}")
-        return jsonify({'error': 'Internal server error'}), 500
+        logger.error(f"Unexpected error during test data creation: {str(e)}")
+        db.session.rollback()
+        raise

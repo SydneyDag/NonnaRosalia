@@ -1,75 +1,7 @@
 document.addEventListener('DOMContentLoaded', function() {
-    // Create alert container at the start
-    const container = document.querySelector('.container');
-    if (!container) {
-        console.error('Container element not found');
-        return;
-    }
-    
-    const alertContainer = document.createElement('div');
-    alertContainer.className = 'alert-container mb-3';
-    container.insertBefore(alertContainer, container.firstChild);
-
     const deliveryDate = document.getElementById('deliveryDate');
     const dailyDriverExpense = document.getElementById('dailyDriverExpense');
-    const addOrderBtn = document.getElementById('addOrderBtn');
     
-    if (!deliveryDate || !dailyDriverExpense || !addOrderBtn) {
-        console.error('Required elements not found');
-        return;
-    }
-
-    // Initialize date picker with today's date
-    deliveryDate.valueAsDate = new Date();
-
-    function showError(message) {
-        try {
-            console.error(message);
-            const alertDiv = document.createElement('div');
-            alertDiv.className = 'alert alert-danger alert-dismissible fade show';
-            alertDiv.innerHTML = `
-                ${message}
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-            `;
-            
-            // Clear existing alerts
-            while (alertContainer.firstChild) {
-                alertContainer.removeChild(alertContainer.firstChild);
-            }
-            
-            alertContainer.appendChild(alertDiv);
-            setTimeout(() => {
-                if (alertDiv && alertDiv.parentNode === alertContainer) {
-                    alertDiv.remove();
-                }
-            }, 5000);
-        } catch (error) {
-            console.error('Error showing alert:', error);
-        }
-    }
-
-    function showSuccess(message) {
-        try {
-            console.log(message);
-            const alertDiv = document.createElement('div');
-            alertDiv.className = 'alert alert-success alert-dismissible fade show';
-            alertDiv.innerHTML = `
-                ${message}
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-            `;
-            
-            // Clear existing alerts
-            while (alertContainer.firstChild) {
-                alertContainer.removeChild(alertContainer.firstChild);
-            }
-            
-            alertContainer.appendChild(alertDiv);
-            setTimeout(() => alertDiv.remove(), 3000);
-        } catch (error) {
-            console.error('Error showing alert:', error);
-        }
-    }
-
     const ordersTable = $('#ordersTable').DataTable({
         columns: [
             { data: 'customer_name' },
@@ -78,191 +10,102 @@ document.addEventListener('DOMContentLoaded', function() {
                 render: function(data, type, row) {
                     if (type === 'display' && row.isEditable) {
                         return `<input type="number" class="form-control form-control-sm cases-input" 
-                               value="${parseInt(data) || 0}" min="0" style="width: 80px">`;
+                               value="${data || 0}" min="0" style="width: 80px">`;
                     }
-                    return parseInt(data) || 0;
+                    return data || 0;
                 }
             },
             { 
                 data: 'total_cost',
                 render: function(data, type, row) {
-                    const value = parseFloat(data) || 0;
                     if (type === 'display' && row.isEditable) {
                         return `<input type="number" class="form-control form-control-sm cost-input" 
-                               value="${value.toFixed(2)}" min="0" step="0.01" style="width: 100px">`;
+                               value="${parseFloat(data || 0).toFixed(2)}" min="0" step="0.01" style="width: 100px">`;
                     }
-                    return `$${value.toFixed(2)}`;
+                    return `$${parseFloat(data || 0).toFixed(2)}`;
                 }
             },
             { 
                 data: 'payment_cash',
                 render: function(data, type, row) {
-                    const value = parseFloat(data) || 0;
                     if (type === 'display' && row.isEditable) {
                         return `<input type="number" class="form-control form-control-sm payment-input cash-input" 
-                               value="${value.toFixed(2)}" min="0" step="0.01" style="width: 100px">`;
+                               value="${parseFloat(data || 0).toFixed(2)}" min="0" step="0.01" style="width: 100px">`;
                     }
-                    return `$${value.toFixed(2)}`;
+                    return `$${parseFloat(data || 0).toFixed(2)}`;
                 }
             },
             { 
                 data: 'payment_check',
                 render: function(data, type, row) {
-                    const value = parseFloat(data) || 0;
                     if (type === 'display' && row.isEditable) {
                         return `<input type="number" class="form-control form-control-sm payment-input check-input" 
-                               value="${value.toFixed(2)}" min="0" step="0.01" style="width: 100px">`;
+                               value="${parseFloat(data || 0).toFixed(2)}" min="0" step="0.01" style="width: 100px">`;
                     }
-                    return `$${value.toFixed(2)}`;
+                    return `$${parseFloat(data || 0).toFixed(2)}`;
                 }
             },
             { 
                 data: 'payment_credit',
                 render: function(data, type, row) {
-                    const value = parseFloat(data) || 0;
                     if (type === 'display' && row.isEditable) {
                         return `<input type="number" class="form-control form-control-sm payment-input credit-input" 
-                               value="${value.toFixed(2)}" min="0" step="0.01" style="width: 100px">`;
+                               value="${parseFloat(data || 0).toFixed(2)}" min="0" step="0.01" style="width: 100px">`;
                     }
-                    return `$${value.toFixed(2)}`;
+                    return `$${parseFloat(data || 0).toFixed(2)}`;
                 }
             },
             {
                 data: 'payment_received',
-                render: value => `$${(parseFloat(value) || 0).toFixed(2)}`
+                render: value => `$${parseFloat(value || 0).toFixed(2)}`
             }
         ],
-        language: {
-            emptyTable: "No orders found for the selected date",
-            loadingRecords: "Loading orders...",
-            zeroRecords: "No matching orders found",
-            error: "Error loading order data"
-        },
-        footerCallback: function(row, data, start, end, display) {
-            try {
-                const api = this.api();
-                // Calculate column totals
-                const totals = {
-                    cases: 0,
-                    cost: 0,
-                    cash: 0,
-                    check: 0,
-                    credit: 0,
-                    payments: 0
-                };
-
-                // Use visible rows only
-                api.rows({ page: 'current' }).every(function() {
-                    const row = this.data();
-                    totals.cases += parseInt(row.total_cases) || 0;
-                    totals.cost += parseFloat(row.total_cost) || 0;
-                    totals.cash += parseFloat(row.payment_cash) || 0;
-                    totals.check += parseFloat(row.payment_check) || 0;
-                    totals.credit += parseFloat(row.payment_credit) || 0;
-                    totals.payments += parseFloat(row.payment_received) || 0;
-                });
-
-                // Update summary elements
-                const updateElement = (id, value, isMonetary = true) => {
-                    const element = document.getElementById(id);
-                    if (element) {
-                        element.textContent = isMonetary ? 
-                            `$${parseFloat(value || 0).toFixed(2)}` : 
-                            (parseInt(value || 0)).toString();
-                    }
-                };
-
-                updateElement('totalCases', totals.cases, false);
-                updateElement('totalCost', totals.cost);
-                updateElement('totalPayments', totals.payments);
-                updateElement('tableTotalCases', totals.cases, false);
-                updateElement('tableTotalCost', totals.cost);
-                updateElement('totalCashPayments', totals.cash);
-                updateElement('totalCheckPayments', totals.check);
-                updateElement('totalCreditPayments', totals.credit);
-                updateElement('tableTotalPayments', totals.payments);
-            } catch (error) {
-                console.error('Error calculating totals:', error);
+        createdRow: function(row, data) {
+            if (!data.isEditable) {
+                $(row).addClass('text-muted');
             }
         }
     });
 
-    async function loadOrders() {
-        try {
-            if (!deliveryDate.value) {
-                throw new Error('Please select a valid date');
-            }
+    // Initialize date picker with today's date
+    deliveryDate.valueAsDate = new Date();
+    loadOrders();
 
-            const response = await fetch(`/api/orders/${deliveryDate.value}`);
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.error || 'Failed to load orders');
-            }
-
-            const data = await response.json();
-            if (!Array.isArray(data)) {
-                throw new Error('Invalid response format');
-            }
-
-            const today = new Date().toISOString().split('T')[0];
-            const processedData = data.map(order => ({
-                ...order,
-                total_cases: parseInt(order.total_cases) || 0,
-                total_cost: parseFloat(order.total_cost) || 0,
-                payment_cash: parseFloat(order.payment_cash) || 0,
-                payment_check: parseFloat(order.payment_check) || 0,
-                payment_credit: parseFloat(order.payment_credit) || 0,
-                payment_received: parseFloat(order.payment_received) || 0,
-                isEditable: deliveryDate.value === today
-            }));
-
-            ordersTable.clear().rows.add(processedData).draw();
-            return processedData;
-        } catch (error) {
-            console.error('Error loading orders:', error);
-            showError('Failed to load orders: ' + error.message);
-            ordersTable.clear().draw();
-            return [];
+    // Show/hide Add Order button based on selected date
+    function updateAddOrderButton() {
+        const today = new Date().toISOString().split('T')[0];
+        const addOrderBtn = document.getElementById('addOrderBtn');
+        if (addOrderBtn) {
+            addOrderBtn.style.display = deliveryDate.value === today ? 'block' : 'none';
         }
     }
 
-    async function loadDailyDriverExpense() {
-        try {
-            if (!deliveryDate.value) {
-                throw new Error('Please select a valid date');
-            }
+    // Event Listeners
+    deliveryDate.addEventListener('change', () => {
+        loadOrders();
+        loadDailyDriverExpense();
+        updateAddOrderButton();
+    });
 
-            const response = await fetch(`/api/daily_driver_expense/${deliveryDate.value}`);
-            if (!response.ok && response.status !== 404) {
-                const errorData = await response.json();
-                throw new Error(errorData.error || 'Failed to load driver expense');
-            }
+    document.getElementById('saveDriverExpense').addEventListener('click', saveDailyDriverExpense);
 
-            if (response.status === 404) {
-                dailyDriverExpense.value = '0';
-                return;
-            }
-
-            const data = await response.json();
-            if (!data || typeof data.amount !== 'number') {
-                throw new Error('Invalid response format');
-            }
-
-            dailyDriverExpense.value = data.amount.toString();
-        } catch (error) {
-            console.error('Error loading driver expense:', error);
-            dailyDriverExpense.value = '0';
-            showError('Failed to load driver expense: ' + error.message);
-        }
-    }
+    // Event delegation for input changes in the table
+    $('#ordersTable').on('change', 'input', function() {
+        const row = $(this).closest('tr');
+        const data = ordersTable.row(row).data();
+        const updatedData = collectRowData(row, data);
+        
+        updateOrder(data.id, updatedData);
+    });
 
     async function updateOrder(orderId, updatedData) {
         try {
-            if (!orderId) throw new Error('Order ID is required');
-            
+            console.log('Updating order:', orderId, updatedData);
             const response = await fetch(`/api/orders/${orderId}`, {
                 method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json'
+                },
                 body: JSON.stringify(updatedData)
             });
 
@@ -271,25 +114,137 @@ document.addEventListener('DOMContentLoaded', function() {
                 throw new Error(errorData.error || 'Failed to update order');
             }
 
-            await loadOrders();
+            await loadOrders(); // Reload to refresh totals
             showSuccess('Order updated successfully');
         } catch (error) {
             console.error('Error updating order:', error);
             showError('Failed to update order: ' + error.message);
-            throw error;
+        }
+    }
+
+    // Load customers for the modal
+    async function loadCustomers() {
+        try {
+            console.log('Loading customers...');
+            const response = await fetch('/api/customers');
+            if (!response.ok) {
+                throw new Error('Failed to load customers');
+            }
+            const customers = await response.json();
+            const customerOptions = customers.map(c => 
+                `<option value="${c.id}">${c.name}</option>`
+            ).join('');
+            document.getElementById('customerId').innerHTML = customerOptions;
+            console.log('Customers loaded successfully');
+        } catch (error) {
+            console.error('Error loading customers:', error);
+            showError('Failed to load customers: ' + error.message);
+        }
+    }
+
+    function collectRowData(row, originalData) {
+        return {
+            id: originalData.id,
+            total_cases: parseInt(row.find('.cases-input').val()) || 0,
+            total_cost: parseFloat(row.find('.cost-input').val()) || 0,
+            payment_cash: parseFloat(row.find('.cash-input').val()) || 0,
+            payment_check: parseFloat(row.find('.check-input').val()) || 0,
+            payment_credit: parseFloat(row.find('.credit-input').val()) || 0
+        };
+    }
+
+    // Save new order (simplified)
+    document.getElementById('saveOrder').addEventListener('click', async function() {
+        try {
+            console.log('Creating new order...');
+            const orderData = {
+                customer_id: document.getElementById('customerId').value,
+                delivery_date: deliveryDate.value
+            };
+
+            const response = await fetch('/orders', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(orderData)
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Failed to create order');
+            }
+
+            $('#orderModal').modal('hide');
+            await loadOrders();
+            showSuccess('Order created successfully');
+        } catch (error) {
+            console.error('Error saving order:', error);
+            showError('Failed to create order: ' + error.message);
+        }
+    });
+
+    async function loadOrders() {
+        try {
+            console.log('Loading orders for date:', deliveryDate.value);
+            const today = new Date().toISOString().split('T')[0];
+            const response = await fetch(`/api/orders/${deliveryDate.value}`);
+            
+            if (!response.ok) {
+                throw new Error('Failed to load orders');
+            }
+
+            const data = await response.json();
+            // Mark orders as editable if they're for today
+            const processedData = data.map(order => ({
+                ...order,
+                isEditable: deliveryDate.value === today
+            }));
+            
+            ordersTable.clear().rows.add(processedData).draw();
+            updateTotals(processedData);
+            console.log('Orders loaded successfully');
+        } catch (error) {
+            console.error('Error loading orders:', error);
+            showError('Failed to load orders: ' + error.message);
+            ordersTable.clear().draw();
+        }
+    }
+
+    async function loadDailyDriverExpense() {
+        try {
+            console.log('Loading driver expense for date:', deliveryDate.value);
+            const response = await fetch(`/api/daily_driver_expense/${deliveryDate.value}`);
+            
+            if (!response.ok) {
+                if (response.status === 404) {
+                    // Not an error, just no expense set yet
+                    dailyDriverExpense.value = 0;
+                    return;
+                }
+                throw new Error('Failed to load driver expense');
+            }
+
+            const data = await response.json();
+            dailyDriverExpense.value = data.amount || 0;
+            updateTotals(ordersTable.data());
+            console.log('Driver expense loaded successfully');
+        } catch (error) {
+            console.error('Error loading driver expense:', error);
+            dailyDriverExpense.value = 0;
+            showError('Failed to load driver expense: ' + error.message);
         }
     }
 
     async function saveDailyDriverExpense() {
         try {
-            const amount = parseFloat(dailyDriverExpense.value);
-            if (isNaN(amount) || amount < 0) {
-                throw new Error('Please enter a valid expense amount');
-            }
-
+            console.log('Saving driver expense...');
+            const amount = parseFloat(dailyDriverExpense.value) || 0;
             const response = await fetch('/api/daily_driver_expense', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json'
+                },
                 body: JSON.stringify({
                     date: deliveryDate.value,
                     amount: amount
@@ -301,7 +256,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 throw new Error(errorData.error || 'Failed to save driver expense');
             }
 
-            await loadOrders();
+            updateTotals(ordersTable.data());
             showSuccess('Driver expense saved successfully');
         } catch (error) {
             console.error('Error saving driver expense:', error);
@@ -309,82 +264,62 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    function collectRowData(row, originalData) {
-        try {
-            if (!row || !originalData) {
-                throw new Error('Invalid row data');
-            }
+    function updateTotals(orders) {
+        const totals = orders.reduce((acc, order) => {
+            acc.cases += parseInt(order.total_cases) || 0;
+            acc.cost += parseFloat(order.total_cost) || 0;
+            acc.cashPayments += parseFloat(order.payment_cash) || 0;
+            acc.checkPayments += parseFloat(order.payment_check) || 0;
+            acc.creditPayments += parseFloat(order.payment_credit) || 0;
+            acc.totalPayments += parseFloat(order.payment_received) || 0;
+            return acc;
+        }, { 
+            cases: 0, 
+            cost: 0, 
+            cashPayments: 0,
+            checkPayments: 0,
+            creditPayments: 0,
+            totalPayments: 0
+        });
 
-            const getValue = (selector) => {
-                const input = row.find(selector);
-                return input.length ? parseFloat(input.val()) || 0 : 0;
-            };
+        // Update summary cards
+        document.getElementById('totalCases').textContent = totals.cases;
+        document.getElementById('totalCost').textContent = `$${totals.cost.toFixed(2)}`;
+        document.getElementById('totalPayments').textContent = `$${totals.totalPayments.toFixed(2)}`;
 
-            const data = {
-                id: originalData.id,
-                total_cases: getValue('.cases-input'),
-                total_cost: getValue('.cost-input'),
-                payment_cash: getValue('.cash-input'),
-                payment_check: getValue('.check-input'),
-                payment_credit: getValue('.credit-input')
-            };
-
-            if (data.total_cost < 0) throw new Error('Total cost cannot be negative');
-            if (data.total_cases < 0) throw new Error('Cases cannot be negative');
-            if (data.payment_cash < 0 || data.payment_check < 0 || data.payment_credit < 0) {
-                throw new Error('Payments cannot be negative');
-            }
-
-            return data;
-        } catch (error) {
-            console.error('Error collecting row data:', error);
-            throw error;
-        }
+        // Update table totals
+        document.getElementById('tableTotalCases').textContent = totals.cases;
+        document.getElementById('tableTotalCost').textContent = `$${totals.cost.toFixed(2)}`;
+        document.getElementById('totalCashPayments').textContent = `$${totals.cashPayments.toFixed(2)}`;
+        document.getElementById('totalCheckPayments').textContent = `$${totals.checkPayments.toFixed(2)}`;
+        document.getElementById('totalCreditPayments').textContent = `$${totals.creditPayments.toFixed(2)}`;
+        document.getElementById('tableTotalPayments').textContent = `$${totals.totalPayments.toFixed(2)}`;
     }
 
-    function updateAddOrderButton() {
-        const today = new Date().toISOString().split('T')[0];
-        if (addOrderBtn) {
-            addOrderBtn.style.display = deliveryDate.value === today ? 'block' : 'none';
-        }
+    function showError(message) {
+        const alertDiv = document.createElement('div');
+        alertDiv.className = 'alert alert-danger alert-dismissible fade show';
+        alertDiv.innerHTML = `
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        document.querySelector('.container').insertBefore(alertDiv, document.querySelector('.card'));
+        setTimeout(() => alertDiv.remove(), 5000);
     }
 
-    // Event Listeners
-    deliveryDate.addEventListener('change', async () => {
-        try {
-            await Promise.all([loadOrders(), loadDailyDriverExpense()]);
-            updateAddOrderButton();
-        } catch (error) {
-            console.error('Error updating data:', error);
-            showError('Failed to update data: ' + error.message);
-        }
-    });
+    function showSuccess(message) {
+        const alertDiv = document.createElement('div');
+        alertDiv.className = 'alert alert-success alert-dismissible fade show';
+        alertDiv.innerHTML = `
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        document.querySelector('.container').insertBefore(alertDiv, document.querySelector('.card'));
+        setTimeout(() => alertDiv.remove(), 3000);
+    }
 
-    document.getElementById('saveDriverExpense')?.addEventListener('click', saveDailyDriverExpense);
-
-    $('#ordersTable').on('change', 'input', async function() {
-        try {
-            const row = $(this).closest('tr');
-            const data = ordersTable.row(row).data();
-            if (!data) {
-                throw new Error('Could not find order data');
-            }
-            const updatedData = collectRowData(row, data);
-            await updateOrder(data.id, updatedData);
-        } catch (error) {
-            console.error('Error updating order:', error);
-            showError(error.message);
-        }
-    });
-
-    // Initialize application
-    Promise.all([
-        loadOrders(),
-        loadDailyDriverExpense()
-    ]).then(() => {
-        updateAddOrderButton();
-    }).catch(error => {
-        console.error('Error during initialization:', error);
-        showError('Failed to initialize application: ' + error.message);
-    });
+    // Initial setup
+    updateAddOrderButton();
+    loadDailyDriverExpense();
+    loadCustomers();
 });

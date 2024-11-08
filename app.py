@@ -133,7 +133,7 @@ init_database()
 with app.app_context():
     import models
     from auth import auth, init_auth
-    from routes import routes, create_test_data
+    from routes import routes
     
     app.register_blueprint(auth)
     app.register_blueprint(routes)
@@ -147,9 +147,6 @@ with app.app_context():
         
         logger.info("Initializing admin user...")
         create_admin_user()
-        
-        logger.info("Creating test data...")
-        create_test_data()
         logger.info("Application initialization completed successfully")
         
     except SQLAlchemyError as e:

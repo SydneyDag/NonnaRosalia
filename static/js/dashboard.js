@@ -3,11 +3,67 @@ document.addEventListener('DOMContentLoaded', function() {
     const container = document.querySelector('.container');
     const alertContainer = document.createElement('div');
     alertContainer.className = 'alert-container mb-3';
-    container.prepend(alertContainer);
+    container.insertBefore(alertContainer, container.firstChild);
 
     const deliveryDate = document.getElementById('deliveryDate');
     const dailyDriverExpense = document.getElementById('dailyDriverExpense');
+    const addOrderBtn = document.getElementById('addOrderBtn');
     
+    // Initialize date picker with today's date
+    deliveryDate.valueAsDate = new Date();
+
+    function showError(message) {
+        try {
+            console.error(message);
+            const alertDiv = document.createElement('div');
+            alertDiv.className = 'alert alert-danger alert-dismissible fade show';
+            alertDiv.innerHTML = `
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            
+            // Clear existing alerts
+            while (alertContainer.firstChild) {
+                alertContainer.removeChild(alertContainer.firstChild);
+            }
+            
+            alertContainer.appendChild(alertDiv);
+            setTimeout(() => {
+                if (alertDiv && alertDiv.parentNode === alertContainer) {
+                    alertDiv.remove();
+                }
+            }, 5000);
+        } catch (error) {
+            console.error('Error showing alert:', error);
+        }
+    }
+
+    function showSuccess(message) {
+        try {
+            console.log(message);
+            const alertDiv = document.createElement('div');
+            alertDiv.className = 'alert alert-success alert-dismissible fade show';
+            alertDiv.innerHTML = `
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            
+            // Clear existing alerts
+            while (alertContainer.firstChild) {
+                alertContainer.removeChild(alertContainer.firstChild);
+            }
+            
+            alertContainer.appendChild(alertDiv);
+            setTimeout(() => {
+                if (alertDiv && alertDiv.parentNode === alertContainer) {
+                    alertDiv.remove();
+                }
+            }, 3000);
+        } catch (error) {
+            console.error('Error showing alert:', error);
+        }
+    }
+
     const ordersTable = $('#ordersTable').DataTable({
         columns: [
             { data: 'customer_name' },
@@ -66,238 +122,149 @@ document.addEventListener('DOMContentLoaded', function() {
                 render: value => `$${parseFloat(value || 0).toFixed(2)}`
             }
         ],
-        createdRow: function(row, data) {
-            if (!data.isEditable) {
-                $(row).addClass('text-muted');
-            }
-        },
         language: {
             emptyTable: "No orders found for the selected date",
             loadingRecords: "Loading orders...",
             zeroRecords: "No matching orders found",
             error: "Error loading order data"
         },
-        processing: true,
-        serverSide: false,
-        dom: '<"row"<"col-md-12"f>>rt<"row"<"col-md-6"l><"col-md-6"p>>'
-    });
+        footerCallback: function(row, data, start, end, display) {
+            try {
+                const api = this.api();
+                // Calculate column totals
+                const totals = {
+                    cases: api.column(1, {page: 'current'}).data().reduce((a, b) => a + (parseInt(b) || 0), 0),
+                    cost: api.column(2, {page: 'current'}).data().reduce((a, b) => {
+                        const val = typeof b === 'string' ? b.replace('$', '') : b;
+                        return a + (parseFloat(val) || 0);
+                    }, 0),
+                    cash: api.column(3, {page: 'current'}).data().reduce((a, b) => {
+                        const val = typeof b === 'string' ? b.replace('$', '') : b;
+                        return a + (parseFloat(val) || 0);
+                    }, 0),
+                    check: api.column(4, {page: 'current'}).data().reduce((a, b) => {
+                        const val = typeof b === 'string' ? b.replace('$', '') : b;
+                        return a + (parseFloat(val) || 0);
+                    }, 0),
+                    credit: api.column(5, {page: 'current'}).data().reduce((a, b) => {
+                        const val = typeof b === 'string' ? b.replace('$', '') : b;
+                        return a + (parseFloat(val) || 0);
+                    }, 0),
+                    payments: api.column(6, {page: 'current'}).data().reduce((a, b) => {
+                        const val = typeof b === 'string' ? b.replace('$', '') : b;
+                        return a + (parseFloat(val) || 0);
+                    }, 0)
+                };
 
-    // Initialize date picker with today's date
-    deliveryDate.valueAsDate = new Date();
-    
-    // Show/hide Add Order button based on selected date
-    function updateAddOrderButton() {
-        const today = new Date().toISOString().split('T')[0];
-        const addOrderBtn = document.getElementById('addOrderBtn');
-        if (addOrderBtn) {
-            addOrderBtn.style.display = deliveryDate.value === today ? 'block' : 'none';
-        }
-    }
+                // Update summary elements
+                const updateElement = (id, value, isMonetary = true) => {
+                    const element = document.getElementById(id);
+                    if (element) {
+                        element.textContent = isMonetary ? 
+                            `$${parseFloat(value || 0).toFixed(2)}` : 
+                            (parseInt(value || 0)).toString();
+                    }
+                };
 
-    // Event Listeners
-    deliveryDate.addEventListener('change', () => {
-        loadOrders();
-        loadDailyDriverExpense();
-        updateAddOrderButton();
-    });
-
-    document.getElementById('saveDriverExpense').addEventListener('click', saveDailyDriverExpense);
-
-    // Event delegation for input changes in the table
-    $('#ordersTable').on('change', 'input', function() {
-        const row = $(this).closest('tr');
-        const data = ordersTable.row(row).data();
-        if (!data) {
-            showError('Error: Could not find order data');
-            return;
-        }
-        try {
-            const updatedData = collectRowData(row, data);
-            updateOrder(data.id, updatedData);
-        } catch (error) {
-            showError(error.message);
-        }
-    });
-
-    async function updateOrder(orderId, updatedData) {
-        try {
-            if (!orderId) throw new Error('Invalid order ID');
-            
-            const response = await fetch(`/api/orders/${orderId}`, {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(updatedData)
-            });
-
-            const data = await response.json();
-            
-            if (!response.ok) {
-                throw new Error(data.error || 'Failed to update order');
+                updateElement('totalCases', totals.cases, false);
+                updateElement('totalCost', totals.cost);
+                updateElement('totalPayments', totals.payments);
+                updateElement('tableTotalCases', totals.cases, false);
+                updateElement('tableTotalCost', totals.cost);
+                updateElement('totalCashPayments', totals.cash);
+                updateElement('totalCheckPayments', totals.check);
+                updateElement('totalCreditPayments', totals.credit);
+                updateElement('tableTotalPayments', totals.payments);
+            } catch (error) {
+                console.error('Error calculating totals:', error);
             }
-
-            await loadOrders();
-            showSuccess('Order updated successfully');
-        } catch (error) {
-            console.error('Error updating order:', error);
-            showError(`Failed to update order: ${error.message}`);
-        }
-    }
-
-    async function loadCustomers() {
-        try {
-            const response = await fetch('/api/customers');
-            if (!response.ok) {
-                const data = await response.json();
-                throw new Error(data.error || 'Failed to load customers');
-            }
-            
-            const customers = await response.json();
-            if (!Array.isArray(customers)) {
-                throw new Error('Invalid customer data received');
-            }
-            
-            const customerSelect = document.getElementById('customerId');
-            if (!customerSelect) {
-                console.warn('Customer select element not found');
-                return;
-            }
-            customerSelect.innerHTML = customers.map(c => 
-                `<option value="${c.id}">${c.name}</option>`
-            ).join('');
-            
-        } catch (error) {
-            console.error('Error loading customers:', error);
-            showError('Failed to load customers: ' + error.message);
-        }
-    }
-
-    function collectRowData(row, originalData) {
-        if (!row || !originalData) {
-            throw new Error('Invalid row data');
-        }
-
-        const data = {
-            id: originalData.id,
-            total_cases: parseInt(row.find('.cases-input').val()) || 0,
-            total_cost: parseFloat(row.find('.cost-input').val()) || 0,
-            payment_cash: parseFloat(row.find('.cash-input').val()) || 0,
-            payment_check: parseFloat(row.find('.check-input').val()) || 0,
-            payment_credit: parseFloat(row.find('.credit-input').val()) || 0
-        };
-
-        // Validate data
-        if (data.total_cost < 0) throw new Error('Total cost cannot be negative');
-        if (data.total_cases < 0) throw new Error('Cases cannot be negative');
-        if (data.payment_cash < 0 || data.payment_check < 0 || data.payment_credit < 0) {
-            throw new Error('Payments cannot be negative');
-        }
-
-        return data;
-    }
-
-    document.getElementById('saveOrder').addEventListener('click', async function() {
-        try {
-            const customerId = document.getElementById('customerId')?.value;
-            if (!customerId) {
-                throw new Error('Please select a customer');
-            }
-
-            const orderData = {
-                customer_id: customerId,
-                delivery_date: deliveryDate.value
-            };
-
-            const response = await fetch('/orders', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(orderData)
-            });
-
-            const data = await response.json();
-            
-            if (!response.ok) {
-                throw new Error(data.error || 'Failed to create order');
-            }
-
-            $('#orderModal').modal('hide');
-            await loadOrders();
-            showSuccess('Order created successfully');
-        } catch (error) {
-            console.error('Error saving order:', error);
-            showError('Failed to create order: ' + error.message);
         }
     });
 
     async function loadOrders() {
         try {
             if (!deliveryDate.value) {
-                throw new Error('Invalid date selected');
+                throw new Error('Please select a valid date');
             }
 
             const response = await fetch(`/api/orders/${deliveryDate.value}`);
             if (!response.ok) {
-                const data = await response.json();
-                throw new Error(data.error || 'Failed to load orders');
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Failed to load orders');
             }
 
             const data = await response.json();
             if (!Array.isArray(data)) {
-                throw new Error('Invalid order data received');
+                throw new Error('Invalid response format');
             }
 
             const today = new Date().toISOString().split('T')[0];
             const processedData = data.map(order => ({
                 ...order,
-                total_cases: parseInt(order.total_cases) || 0,
-                total_cost: parseFloat(order.total_cost) || 0,
-                payment_cash: parseFloat(order.payment_cash) || 0,
-                payment_check: parseFloat(order.payment_check) || 0,
-                payment_credit: parseFloat(order.payment_credit) || 0,
-                payment_received: parseFloat(order.payment_received) || 0,
                 isEditable: deliveryDate.value === today
             }));
-            
+
             ordersTable.clear().rows.add(processedData).draw();
-            updateTotals(processedData);
+            return processedData;
         } catch (error) {
             console.error('Error loading orders:', error);
             showError('Failed to load orders: ' + error.message);
             ordersTable.clear().draw();
+            return [];
         }
     }
 
     async function loadDailyDriverExpense() {
         try {
             if (!deliveryDate.value) {
-                throw new Error('Invalid date selected');
+                throw new Error('Please select a valid date');
             }
 
             const response = await fetch(`/api/daily_driver_expense/${deliveryDate.value}`);
             if (!response.ok && response.status !== 404) {
-                const data = await response.json();
-                throw new Error(data.error || 'Failed to load driver expense');
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Failed to load driver expense');
             }
 
             if (response.status === 404) {
-                dailyDriverExpense.value = 0;
+                dailyDriverExpense.value = '0';
                 return;
             }
 
             const data = await response.json();
-            if (typeof data.amount !== 'number') {
-                throw new Error('Invalid driver expense data received');
+            if (!data || typeof data.amount !== 'number') {
+                throw new Error('Invalid response format');
             }
 
-            dailyDriverExpense.value = data.amount || 0;
-            updateTotals(ordersTable.data());
+            dailyDriverExpense.value = data.amount.toString();
         } catch (error) {
             console.error('Error loading driver expense:', error);
-            dailyDriverExpense.value = 0;
+            dailyDriverExpense.value = '0';
             showError('Failed to load driver expense: ' + error.message);
+        }
+    }
+
+    async function updateOrder(orderId, updatedData) {
+        try {
+            if (!orderId) throw new Error('Order ID is required');
+            
+            const response = await fetch(`/api/orders/${orderId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(updatedData)
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Failed to update order');
+            }
+
+            await loadOrders();
+            showSuccess('Order updated successfully');
+        } catch (error) {
+            console.error('Error updating order:', error);
+            showError('Failed to update order: ' + error.message);
+            throw error;
         }
     }
 
@@ -305,27 +272,24 @@ document.addEventListener('DOMContentLoaded', function() {
         try {
             const amount = parseFloat(dailyDriverExpense.value);
             if (isNaN(amount) || amount < 0) {
-                throw new Error('Invalid expense amount');
+                throw new Error('Please enter a valid expense amount');
             }
 
             const response = await fetch('/api/daily_driver_expense', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     date: deliveryDate.value,
                     amount: amount
                 })
             });
 
-            const data = await response.json();
-            
             if (!response.ok) {
-                throw new Error(data.error || 'Failed to save driver expense');
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Failed to save driver expense');
             }
 
-            updateTotals(ordersTable.data());
+            await loadOrders();
             showSuccess('Driver expense saved successfully');
         } catch (error) {
             console.error('Error saving driver expense:', error);
@@ -333,83 +297,82 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    function updateTotals(orders) {
-        if (!orders) return;
-        
+    function collectRowData(row, originalData) {
         try {
-            if (!Array.isArray(orders)) {
-                console.warn('Invalid orders data for totals calculation');
-                return;
+            if (!row || !originalData) {
+                throw new Error('Invalid row data');
             }
 
-            const totals = orders.reduce((acc, order) => ({
-                cases: acc.cases + (parseInt(order.total_cases) || 0),
-                cost: acc.cost + (parseFloat(order.total_cost) || 0),
-                cashPayments: acc.cashPayments + (parseFloat(order.payment_cash) || 0),
-                checkPayments: acc.checkPayments + (parseFloat(order.payment_check) || 0),
-                creditPayments: acc.creditPayments + (parseFloat(order.payment_credit) || 0),
-                totalPayments: acc.totalPayments + (parseFloat(order.payment_received) || 0)
-            }), {
-                cases: 0,
-                cost: 0,
-                cashPayments: 0,
-                checkPayments: 0,
-                creditPayments: 0,
-                totalPayments: 0
-            });
-
-            // Safely update DOM elements
-            const updateElement = (id, value) => {
-                const element = document.getElementById(id);
-                if (element) {
-                    if (id === 'totalCases' || id === 'tableTotalCases') {
-                        element.textContent = value;
-                    } else {
-                        element.textContent = `$${parseFloat(value).toFixed(2)}`;
-                    }
-                }
+            const getValue = (selector) => {
+                const input = row.find(selector);
+                return input.length ? parseFloat(input.val()) || 0 : 0;
             };
 
-            updateElement('totalCases', totals.cases);
-            updateElement('totalCost', totals.cost);
-            updateElement('totalPayments', totals.totalPayments);
-            updateElement('tableTotalCases', totals.cases);
-            updateElement('tableTotalCost', totals.cost);
-            updateElement('totalCashPayments', totals.cashPayments);
-            updateElement('totalCheckPayments', totals.checkPayments);
-            updateElement('totalCreditPayments', totals.creditPayments);
-            updateElement('tableTotalPayments', totals.totalPayments);
+            const data = {
+                id: originalData.id,
+                total_cases: getValue('.cases-input'),
+                total_cost: getValue('.cost-input'),
+                payment_cash: getValue('.cash-input'),
+                payment_check: getValue('.check-input'),
+                payment_credit: getValue('.credit-input')
+            };
 
+            if (data.total_cost < 0) throw new Error('Total cost cannot be negative');
+            if (data.total_cases < 0) throw new Error('Cases cannot be negative');
+            if (data.payment_cash < 0 || data.payment_check < 0 || data.payment_credit < 0) {
+                throw new Error('Payments cannot be negative');
+            }
+
+            return data;
         } catch (error) {
-            console.warn('Error updating totals:', error);
+            console.error('Error collecting row data:', error);
+            throw error;
         }
     }
 
-    function showError(message) {
-        const alertDiv = document.createElement('div');
-        alertDiv.className = 'alert alert-danger alert-dismissible fade show';
-        alertDiv.innerHTML = `
-            ${message}
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        `;
-        alertContainer.appendChild(alertDiv);
-        setTimeout(() => alertDiv.remove(), 5000);
+    function updateAddOrderButton() {
+        const today = new Date().toISOString().split('T')[0];
+        if (addOrderBtn) {
+            addOrderBtn.style.display = deliveryDate.value === today ? 'block' : 'none';
+        }
     }
 
-    function showSuccess(message) {
-        const alertDiv = document.createElement('div');
-        alertDiv.className = 'alert alert-success alert-dismissible fade show';
-        alertDiv.innerHTML = `
-            ${message}
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        `;
-        alertContainer.appendChild(alertDiv);
-        setTimeout(() => alertDiv.remove(), 3000);
-    }
+    // Event Listeners
+    deliveryDate.addEventListener('change', async () => {
+        try {
+            await Promise.all([loadOrders(), loadDailyDriverExpense()]);
+            updateAddOrderButton();
+        } catch (error) {
+            console.error('Error updating data:', error);
+            showError('Failed to update data: ' + error.message);
+        }
+    });
 
-    // Initial setup
-    updateAddOrderButton();
-    loadOrders();
-    loadDailyDriverExpense();
-    loadCustomers();
+    document.getElementById('saveDriverExpense').addEventListener('click', saveDailyDriverExpense);
+
+    $('#ordersTable').on('change', 'input', async function() {
+        try {
+            const row = $(this).closest('tr');
+            const data = ordersTable.row(row).data();
+            if (!data) {
+                throw new Error('Could not find order data');
+            }
+            const updatedData = collectRowData(row, data);
+            await updateOrder(data.id, updatedData);
+        } catch (error) {
+            console.error('Error updating order:', error);
+            showError(error.message);
+        }
+    });
+
+    // Initialize application
+    Promise.all([
+        loadOrders(),
+        loadDailyDriverExpense()
+    ]).then(() => {
+        updateAddOrderButton();
+    }).catch(error => {
+        console.error('Error during initialization:', error);
+        showError('Failed to initialize application: ' + error.message);
+    });
 });

@@ -100,6 +100,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     async function updateOrder(orderId, updatedData) {
         try {
+            console.log('Updating order:', orderId, updatedData);
             const response = await fetch(`/api/orders/${orderId}`, {
                 method: 'PUT',
                 headers: {
@@ -114,6 +115,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
 
             await loadOrders(); // Reload to refresh totals
+            showSuccess('Order updated successfully');
         } catch (error) {
             console.error('Error updating order:', error);
             showError('Failed to update order: ' + error.message);
@@ -121,21 +123,24 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // Load customers for the modal
-    fetch('/api/customers')
-        .then(response => {
-            if (!response.ok) throw new Error('Failed to load customers');
-            return response.json();
-        })
-        .then(customers => {
+    async function loadCustomers() {
+        try {
+            console.log('Loading customers...');
+            const response = await fetch('/api/customers');
+            if (!response.ok) {
+                throw new Error('Failed to load customers');
+            }
+            const customers = await response.json();
             const customerOptions = customers.map(c => 
                 `<option value="${c.id}">${c.name}</option>`
             ).join('');
             document.getElementById('customerId').innerHTML = customerOptions;
-        })
-        .catch(error => {
+            console.log('Customers loaded successfully');
+        } catch (error) {
             console.error('Error loading customers:', error);
             showError('Failed to load customers: ' + error.message);
-        });
+        }
+    }
 
     function collectRowData(row, originalData) {
         return {
@@ -151,6 +156,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Save new order (simplified)
     document.getElementById('saveOrder').addEventListener('click', async function() {
         try {
+            console.log('Creating new order...');
             const orderData = {
                 customer_id: document.getElementById('customerId').value,
                 delivery_date: deliveryDate.value
@@ -171,6 +177,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
             $('#orderModal').modal('hide');
             await loadOrders();
+            showSuccess('Order created successfully');
         } catch (error) {
             console.error('Error saving order:', error);
             showError('Failed to create order: ' + error.message);
@@ -179,6 +186,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     async function loadOrders() {
         try {
+            console.log('Loading orders for date:', deliveryDate.value);
             const today = new Date().toISOString().split('T')[0];
             const response = await fetch(`/api/orders/${deliveryDate.value}`);
             
@@ -195,14 +203,17 @@ document.addEventListener('DOMContentLoaded', function() {
             
             ordersTable.clear().rows.add(processedData).draw();
             updateTotals(processedData);
+            console.log('Orders loaded successfully');
         } catch (error) {
             console.error('Error loading orders:', error);
             showError('Failed to load orders: ' + error.message);
+            ordersTable.clear().draw();
         }
     }
 
     async function loadDailyDriverExpense() {
         try {
+            console.log('Loading driver expense for date:', deliveryDate.value);
             const response = await fetch(`/api/daily_driver_expense/${deliveryDate.value}`);
             
             if (!response.ok) {
@@ -217,6 +228,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const data = await response.json();
             dailyDriverExpense.value = data.amount || 0;
             updateTotals(ordersTable.data());
+            console.log('Driver expense loaded successfully');
         } catch (error) {
             console.error('Error loading driver expense:', error);
             dailyDriverExpense.value = 0;
@@ -226,6 +238,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     async function saveDailyDriverExpense() {
         try {
+            console.log('Saving driver expense...');
             const amount = parseFloat(dailyDriverExpense.value) || 0;
             const response = await fetch('/api/daily_driver_expense', {
                 method: 'POST',
@@ -305,7 +318,8 @@ document.addEventListener('DOMContentLoaded', function() {
         setTimeout(() => alertDiv.remove(), 3000);
     }
 
-    // Initial updates
+    // Initial setup
     updateAddOrderButton();
     loadDailyDriverExpense();
+    loadCustomers();
 });

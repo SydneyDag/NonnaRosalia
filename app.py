@@ -3,7 +3,8 @@ import logging
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.orm import DeclarativeBase
-from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.exc import SQLAlchemyError, OperationalError, DatabaseError
+import time
 
 # Configure logging
 logging.basicConfig(
@@ -18,14 +19,45 @@ class Base(DeclarativeBase):
 db = SQLAlchemy(model_class=Base)
 app = Flask(__name__)
 
+# Database configuration
 app.secret_key = os.environ.get("FLASK_SECRET_KEY") or "dev_key_123"
 app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL")
 app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
     "pool_recycle": 300,
     "pool_pre_ping": True,
+    "pool_size": 10,
+    "max_overflow": 20,
+    "connect_args": {
+        "connect_timeout": 10
+    }
 }
 
-db.init_app(app)
+MAX_RETRIES = 3
+RETRY_DELAY = 2
+
+def init_database():
+    """Initialize database with retry logic"""
+    retry_count = 0
+    while retry_count < MAX_RETRIES:
+        try:
+            logger.info("Attempting database initialization...")
+            db.init_app(app)
+            with app.app_context():
+                db.engine.connect()
+            logger.info("Database connection successful")
+            return True
+        except OperationalError as e:
+            retry_count += 1
+            logger.error(f"Database connection failed (attempt {retry_count}/{MAX_RETRIES}): {str(e)}")
+            if retry_count < MAX_RETRIES:
+                logger.info(f"Retrying in {RETRY_DELAY} seconds...")
+                time.sleep(RETRY_DELAY)
+            else:
+                logger.critical("Failed to connect to database after maximum retries")
+                raise
+        except DatabaseError as e:
+            logger.critical(f"Critical database error: {str(e)}")
+            raise
 
 def create_admin_user():
     try:
@@ -64,6 +96,10 @@ def create_admin_user():
         db.session.rollback()
         raise
 
+# Initialize database
+init_database()
+
+# Register blueprints and initialize application
 with app.app_context():
     import models
     from auth import auth, init_auth
@@ -74,11 +110,21 @@ with app.app_context():
     init_auth(app)
     
     try:
+        logger.info("Starting application initialization...")
         logger.info("Creating database tables...")
         db.create_all()
         logger.info("Database tables created successfully")
+        
+        logger.info("Initializing admin user...")
         create_admin_user()
+        
+        logger.info("Creating test data...")
         create_test_data()
+        logger.info("Application initialization completed successfully")
+        
+    except SQLAlchemyError as e:
+        logger.error(f"Database error during application startup: {str(e)}")
+        raise
     except Exception as e:
-        logger.error(f"Error during application startup: {str(e)}")
+        logger.error(f"Unexpected error during application startup: {str(e)}")
         raise

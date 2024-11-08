@@ -8,8 +8,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 action: function () {
                     $('#customerFilter').val('');
                     $('#statusFilter').val('');
-                    $('#dateRangeStart').val('');
-                    $('#dateRangeEnd').val('');
                     ordersTable.search('').columns().search('').draw();
                     loadOrders();
                 }
@@ -20,37 +18,45 @@ document.addEventListener('DOMContentLoaded', function() {
             { 
                 data: 'order_date',
                 render: function(data) {
-                    return new Date(data).toLocaleDateString();
+                    try {
+                        return data ? new Date(data).toLocaleDateString() : '';
+                    } catch (error) {
+                        console.error('Error formatting date:', error);
+                        return data || '';
+                    }
                 }
             },
-            { data: 'total_cases' },
+            { 
+                data: 'total_cases',
+                render: value => value || 0
+            },
             { 
                 data: 'total_cost',
-                render: value => `$${parseFloat(value).toFixed(2)}`
+                render: value => `$${parseFloat(value || 0).toFixed(2)}`
             },
             { 
                 data: 'payment_cash',
-                render: value => `$${parseFloat(value).toFixed(2)}`
+                render: value => `$${parseFloat(value || 0).toFixed(2)}`
             },
             { 
                 data: 'payment_check',
-                render: value => `$${parseFloat(value).toFixed(2)}`
+                render: value => `$${parseFloat(value || 0).toFixed(2)}`
             },
             { 
                 data: 'payment_credit',
-                render: value => `$${parseFloat(value).toFixed(2)}`
+                render: value => `$${parseFloat(value || 0).toFixed(2)}`
             },
             {
                 data: null,
                 render: function(data) {
-                    const balance = parseFloat(data.total_cost) - parseFloat(data.payment_received);
+                    const balance = parseFloat(data.total_cost || 0) - parseFloat(data.payment_received || 0);
                     return `$${balance.toFixed(2)}`;
                 }
             },
             {
                 data: null,
                 render: function(data) {
-                    const balance = parseFloat(data.total_cost) - parseFloat(data.payment_received);
+                    const balance = parseFloat(data.total_cost || 0) - parseFloat(data.payment_received || 0);
                     return balance > 0 ? 'OPEN' : 'CLOSED';
                 }
             },
@@ -81,32 +87,11 @@ document.addEventListener('DOMContentLoaded', function() {
                     <option value="CLOSED">Closed</option>
                 </select>
             </div>
-            <div class="col-md-6">
-                <div class="input-group">
-                    <input type="date" class="form-control" id="dateRangeStart">
-                    <span class="input-group-text">to</span>
-                    <input type="date" class="form-control" id="dateRangeEnd">
-                </div>
-            </div>
         </div>
     `);
 
-    // Initialize date inputs
-    const now = new Date();
-    document.getElementById('dateRangeStart').valueAsDate = now;
-    document.getElementById('dateRangeEnd').valueAsDate = now;
-
     // Load customers for filters and modal
-    fetch('/api/customers')
-        .then(response => response.json())
-        .then(customers => {
-            const customerOptions = customers.map(c => 
-                `<option value="${c.id}">${c.name}</option>`
-            ).join('');
-            
-            document.getElementById('customerId').innerHTML = customerOptions;
-            document.getElementById('customerFilter').innerHTML += customerOptions;
-        });
+    loadCustomers();
 
     // Add filter event listeners
     $('#customerFilter').on('change', function() {
@@ -117,95 +102,54 @@ document.addEventListener('DOMContentLoaded', function() {
         ordersTable.column(8).search(this.value).draw();
     });
 
-    $('#dateRangeStart, #dateRangeEnd').on('change', function() {
-        loadOrders();
-    });
-
-    // Calculate total cost when cases or cost per case changes
-    document.getElementById('totalCases').addEventListener('input', calculateTotal);
-    document.getElementById('costPerCase').addEventListener('input', calculateTotal);
-
-    // Calculate total payment when any payment field changes
-    document.querySelectorAll('.payment-input').forEach(input => {
-        input.addEventListener('input', calculateTotalPayment);
-    });
-
-    function calculateTotal() {
-        const cases = document.getElementById('totalCases').value || 0;
-        const costPerCase = document.getElementById('costPerCase').value || 0;
-        const total = cases * costPerCase;
-        document.getElementById('totalCost').value = total.toFixed(2);
-        validatePayments();
-    }
-
-    function calculateTotalPayment() {
-        const cash = parseFloat(document.getElementById('paymentCash').value) || 0;
-        const check = parseFloat(document.getElementById('paymentCheck').value) || 0;
-        const credit = parseFloat(document.getElementById('paymentCredit').value) || 0;
-        const total = cash + check + credit;
-        document.getElementById('paymentReceived').value = total.toFixed(2);
-        validatePayments();
-    }
-
-    function validatePayments() {
-        const totalCost = parseFloat(document.getElementById('totalCost').value) || 0;
-        const totalPayment = parseFloat(document.getElementById('paymentReceived').value) || 0;
-        const saveButton = document.getElementById('saveOrder');
-        
-        if (totalPayment > totalCost) {
-            alert('Total payment cannot exceed total cost');
-            saveButton.disabled = true;
-        } else {
-            saveButton.disabled = false;
-        }
-    }
-
     // Save order
-    document.getElementById('saveOrder').addEventListener('click', function() {
-        const orderId = document.getElementById('orderId').value;
-        const orderData = {
-            customer_id: document.getElementById('customerId').value,
-            delivery_date: document.getElementById('deliveryDate').value,
-            total_cases: parseInt(document.getElementById('totalCases').value),
-            total_cost: parseFloat(document.getElementById('totalCost').value),
-            payment_cash: parseFloat(document.getElementById('paymentCash').value) || 0,
-            payment_check: parseFloat(document.getElementById('paymentCheck').value) || 0,
-            payment_credit: parseFloat(document.getElementById('paymentCredit').value) || 0,
-            payment_received: parseFloat(document.getElementById('paymentReceived').value) || 0,
-            is_one_time_delivery: document.getElementById('isOneTimeDelivery').checked
-        };
+    document.getElementById('saveOrder').addEventListener('click', async function() {
+        try {
+            console.log('Saving order...');
+            const orderData = collectOrderData();
+            
+            if (!orderData.customer_id) {
+                throw new Error('Customer is required');
+            }
 
-        const method = orderId ? 'PUT' : 'POST';
-        if (orderId) orderData.id = orderId;
+            const method = orderData.id ? 'PUT' : 'POST';
+            const url = orderData.id ? `/api/orders/${orderData.id}` : '/orders';
 
-        fetch('/orders', {
-            method: method,
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(orderData)
-        })
-        .then(response => response.json())
-        .then(() => {
+            const response = await fetch(url, {
+                method: method,
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(orderData)
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || 'Failed to save order');
+            }
+
             $('#orderModal').modal('hide');
-            loadOrders();
-        });
+            await loadOrders();
+            showSuccess('Order saved successfully');
+        } catch (error) {
+            console.error('Error saving order:', error);
+            showError('Failed to save order: ' + error.message);
+        }
     });
 
     // Edit order
     $('#ordersTable').on('click', '.edit-order', function() {
-        const row = ordersTable.row($(this).parents('tr')).data();
-        document.getElementById('orderId').value = row.id;
-        document.getElementById('customerId').value = row.customer_id;
-        document.getElementById('deliveryDate').value = new Date(row.delivery_date).toISOString().split('T')[0];
-        document.getElementById('totalCases').value = row.total_cases;
-        document.getElementById('totalCost').value = row.total_cost;
-        document.getElementById('paymentCash').value = row.payment_cash || 0;
-        document.getElementById('paymentCheck').value = row.payment_check || 0;
-        document.getElementById('paymentCredit').value = row.payment_credit || 0;
-        document.getElementById('paymentReceived').value = row.payment_received || 0;
-        document.getElementById('isOneTimeDelivery').checked = row.is_one_time_delivery;
-        $('#orderModal').modal('show');
+        try {
+            const row = ordersTable.row($(this).parents('tr')).data();
+            if (!row) {
+                throw new Error('Order data not found');
+            }
+            populateForm(row);
+            $('#orderModal').modal('show');
+        } catch (error) {
+            console.error('Error editing order:', error);
+            showError('Failed to edit order: ' + error.message);
+        }
     });
 
     // Reset form when modal is opened for new order
@@ -214,26 +158,113 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('orderForm').reset();
             document.getElementById('orderId').value = '';
             document.getElementById('deliveryDate').valueAsDate = new Date();
-            document.getElementById('paymentCash').value = '0';
-            document.getElementById('paymentCheck').value = '0';
-            document.getElementById('paymentCredit').value = '0';
-            document.getElementById('paymentReceived').value = '0';
-            document.getElementById('isOneTimeDelivery').checked = false;
         }
     });
 
-    function loadOrders() {
-        const startDate = document.getElementById('dateRangeStart').value;
-        const endDate = document.getElementById('dateRangeEnd').value;
-        const dateToUse = startDate || endDate || new Date().toISOString().split('T')[0];
-        
-        fetch(`/api/orders/${dateToUse}`)
-            .then(response => response.json())
-            .then(data => {
-                ordersTable.clear().rows.add(data).draw();
-            });
+    async function loadOrders() {
+        try {
+            console.log('Loading orders...');
+            const response = await fetch('/api/orders');
+            if (!response.ok) {
+                throw new Error('Failed to load orders');
+            }
+
+            const orders = await response.json();
+            ordersTable.clear().rows.add(orders).draw();
+            console.log('Orders loaded successfully:', orders.length, 'orders');
+        } catch (error) {
+            console.error('Error loading orders:', error);
+            showError('Failed to load orders: ' + error.message);
+            ordersTable.clear().draw();
+        }
     }
 
-    // Initial load
+    async function loadCustomers() {
+        try {
+            console.log('Loading customers...');
+            const response = await fetch('/api/customers');
+            if (!response.ok) {
+                throw new Error('Failed to load customers');
+            }
+
+            const customers = await response.json();
+            const customerOptions = customers.map(c => 
+                `<option value="${c.id}">${c.name}</option>`
+            ).join('');
+            
+            document.getElementById('customerId').innerHTML = customerOptions;
+            document.getElementById('customerFilter').innerHTML += customerOptions;
+            console.log('Customers loaded successfully:', customers.length, 'customers');
+        } catch (error) {
+            console.error('Error loading customers:', error);
+            showError('Failed to load customers: ' + error.message);
+        }
+    }
+
+    function collectOrderData() {
+        const data = {
+            id: document.getElementById('orderId').value,
+            customer_id: document.getElementById('customerId').value,
+            delivery_date: document.getElementById('deliveryDate').value,
+            total_cases: parseInt(document.getElementById('totalCases').value) || 0,
+            total_cost: parseFloat(document.getElementById('totalCost').value) || 0,
+            payment_cash: parseFloat(document.getElementById('paymentCash').value) || 0,
+            payment_check: parseFloat(document.getElementById('paymentCheck').value) || 0,
+            payment_credit: parseFloat(document.getElementById('paymentCredit').value) || 0
+        };
+
+        // Validate required fields
+        if (!data.customer_id) {
+            throw new Error('Customer is required');
+        }
+        if (!data.delivery_date) {
+            throw new Error('Delivery date is required');
+        }
+
+        return data;
+    }
+
+    function populateForm(data) {
+        try {
+            document.getElementById('orderId').value = data.id || '';
+            document.getElementById('customerId').value = data.customer_id || '';
+            document.getElementById('deliveryDate').value = data.delivery_date ? 
+                new Date(data.delivery_date).toISOString().split('T')[0] : '';
+            document.getElementById('totalCases').value = data.total_cases || 0;
+            document.getElementById('totalCost').value = data.total_cost || 0;
+            document.getElementById('paymentCash').value = data.payment_cash || 0;
+            document.getElementById('paymentCheck').value = data.payment_check || 0;
+            document.getElementById('paymentCredit').value = data.payment_credit || 0;
+        } catch (error) {
+            console.error('Error populating form:', error);
+            showError('Failed to load order details: ' + error.message);
+        }
+    }
+
+    function showError(message) {
+        console.error(message);
+        const alertDiv = document.createElement('div');
+        alertDiv.className = 'alert alert-danger alert-dismissible fade show';
+        alertDiv.innerHTML = `
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        document.querySelector('.card').insertBefore(alertDiv, document.querySelector('.card-body'));
+        setTimeout(() => alertDiv.remove(), 5000);
+    }
+
+    function showSuccess(message) {
+        console.log(message);
+        const alertDiv = document.createElement('div');
+        alertDiv.className = 'alert alert-success alert-dismissible fade show';
+        alertDiv.innerHTML = `
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        document.querySelector('.card').insertBefore(alertDiv, document.querySelector('.card-body'));
+        setTimeout(() => alertDiv.remove(), 3000);
+    }
+
+    // Load initial data
     loadOrders();
 });

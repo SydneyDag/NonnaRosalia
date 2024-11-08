@@ -23,12 +23,6 @@ document.addEventListener('DOMContentLoaded', function() {
                     return new Date(data).toLocaleDateString();
                 }
             },
-            { 
-                data: 'delivery_date',
-                render: function(data) {
-                    return new Date(data).toLocaleDateString();
-                }
-            },
             { data: 'total_cases' },
             { 
                 data: 'total_cost',
@@ -120,7 +114,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     $('#statusFilter').on('change', function() {
-        ordersTable.column(9).search(this.value).draw();
+        ordersTable.column(8).search(this.value).draw();
     });
 
     $('#dateRangeStart, #dateRangeEnd').on('change', function() {

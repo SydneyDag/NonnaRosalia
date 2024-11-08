@@ -83,8 +83,18 @@ document.addEventListener('DOMContentLoaded', function() {
                 render: value => `$${parseFloat(value).toFixed(2)}`
             },
             {
-                data: 'driver_expense',
-                render: value => `$${parseFloat(value).toFixed(2)}`
+                data: null,
+                render: function(data) {
+                    const balance = parseFloat(data.total_cost) - parseFloat(data.payment_received);
+                    return `$${balance.toFixed(2)}`;
+                }
+            },
+            {
+                data: null,
+                render: function(data) {
+                    const balance = parseFloat(data.total_cost) - parseFloat(data.payment_received);
+                    return balance > 0 ? 'Open' : 'Closed';
+                }
             },
             {
                 data: 'id',
@@ -226,8 +236,7 @@ document.addEventListener('DOMContentLoaded', function() {
             payment_cash: parseFloat(document.getElementById('paymentCash').value) || 0,
             payment_check: parseFloat(document.getElementById('paymentCheck').value) || 0,
             payment_credit: parseFloat(document.getElementById('paymentCredit').value) || 0,
-            payment_received: parseFloat(document.getElementById('paymentReceived').value) || 0,
-            driver_expense: parseFloat(document.getElementById('driverExpense').value) || 0
+            payment_received: parseFloat(document.getElementById('paymentReceived').value) || 0
         };
 
         fetch('/orders', {
@@ -270,7 +279,6 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('paymentCheck').value = data.payment_check || 0;
         document.getElementById('paymentCredit').value = data.payment_credit || 0;
         document.getElementById('paymentReceived').value = data.payment_received || 0;
-        document.getElementById('driverExpense').value = data.driver_expense || 0;
 
         // Handle read-only mode
         const inputs = document.querySelectorAll('#orderForm input, #orderForm select');
@@ -292,7 +300,6 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('paymentCheck').value = '0';
             document.getElementById('paymentCredit').value = '0';
             document.getElementById('paymentReceived').value = '0';
-            document.getElementById('driverExpense').value = '0';
 
             // Enable all inputs for new order
             const inputs = document.querySelectorAll('#orderForm input, #orderForm select');

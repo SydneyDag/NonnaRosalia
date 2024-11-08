@@ -1,6 +1,5 @@
 document.addEventListener('DOMContentLoaded', function() {
     const deliveryDate = document.getElementById('deliveryDate');
-    const dailyDriverExpense = document.getElementById('dailyDriverExpense');
     
     const ordersTable = $('#ordersTable').DataTable({
         columns: [
@@ -135,7 +134,8 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('saveOrder').addEventListener('click', function() {
         const orderData = {
             customer_id: document.getElementById('customerId').value,
-            delivery_date: deliveryDate.value
+            delivery_date: deliveryDate.value,
+            is_one_time_delivery: document.getElementById('isOneTimeDelivery').checked
         };
 
         fetch('/orders', {
@@ -159,6 +159,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 ordersTable.row.add(data.order).draw();
                 updateTotals(ordersTable.data());
                 $('#orderModal').modal('hide');
+                document.getElementById('orderForm').reset();
                 
                 showSuccess('Order created successfully');
             }
@@ -208,11 +209,9 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function loadOrders() {
-        console.log('Loading orders for date:', deliveryDate.value);
         fetch(`/api/orders/${deliveryDate.value}`)
             .then(response => response.json())
             .then(data => {
-                console.log('Orders loaded successfully');
                 ordersTable.clear().rows.add(data).draw();
                 updateTotals(data);
             })

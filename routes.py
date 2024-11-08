@@ -66,7 +66,8 @@ def create_order():
         customer = Customer.query.get_or_404(data['customer_id'])
         weekday = delivery_date.strftime('%A')
         
-        if customer.delivery_day != weekday:
+        # Skip delivery day validation if it's a one-time delivery
+        if not data.get('is_one_time_delivery') and customer.delivery_day != weekday:
             return jsonify({
                 'error': f'Invalid delivery day. Customer {customer.name} is scheduled for {customer.delivery_day}'
             }), 400
@@ -81,7 +82,8 @@ def create_order():
             payment_check=0,
             payment_credit=0,
             payment_received=0,
-            driver_expense=0
+            driver_expense=0,
+            is_one_time_delivery=data.get('is_one_time_delivery', False)
         )
         
         db.session.add(order)
@@ -101,6 +103,7 @@ def create_order():
                 'payment_check': float(order.payment_check),
                 'payment_credit': float(order.payment_credit),
                 'payment_received': float(order.payment_received),
+                'is_one_time_delivery': order.is_one_time_delivery,
                 'isEditable': True
             }
         })
@@ -115,9 +118,10 @@ def get_orders_by_date(date):
         delivery_date = datetime.strptime(date, '%Y-%m-%d').date()
         weekday = delivery_date.strftime('%A')
         
+        # Include both scheduled orders and one-time deliveries
         orders = Order.query.join(Customer).filter(
             Order.delivery_date == delivery_date,
-            Customer.delivery_day == weekday
+            (Customer.delivery_day == weekday) | (Order.is_one_time_delivery == True)
         ).all()
         
         if delivery_date == datetime.now().date() and not orders:
@@ -134,14 +138,15 @@ def get_orders_by_date(date):
                     payment_check=0,
                     payment_credit=0,
                     payment_received=0,
-                    driver_expense=0
+                    driver_expense=0,
+                    is_one_time_delivery=False
                 )
                 db.session.add(order)
             db.session.commit()
             
             orders = Order.query.join(Customer).filter(
                 Order.delivery_date == delivery_date,
-                Customer.delivery_day == weekday
+                (Customer.delivery_day == weekday) | (Order.is_one_time_delivery == True)
             ).all()
         
         return jsonify([{
@@ -156,6 +161,7 @@ def get_orders_by_date(date):
             'payment_check': float(order.payment_check),
             'payment_credit': float(order.payment_credit),
             'payment_received': float(order.payment_received),
+            'is_one_time_delivery': order.is_one_time_delivery,
             'isEditable': order.delivery_date == datetime.now().date()
         } for order in orders])
     except Exception as e:

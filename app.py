@@ -56,62 +56,6 @@ def create_admin_user():
         db.session.rollback()
         raise
 
-def create_test_customers():
-    try:
-        from models import Customer
-        if Customer.query.count() == 0:
-            print("Creating test customers...")
-            test_customers = [
-                Customer(
-                    name="North Store 1",
-                    address="123 Main St",
-                    delivery_day="Monday",
-                    account_type="Regular",
-                    territory="North",
-                    is_active=True
-                ),
-                Customer(
-                    name="South Market",
-                    address="456 Oak Ave",
-                    delivery_day="Wednesday",
-                    account_type="Corporate",
-                    territory="South",
-                    is_active=True
-                ),
-                Customer(
-                    name="Weekend Shop",
-                    address="789 Pine Rd",
-                    delivery_day="Saturday",
-                    account_type="Regular",
-                    territory="North",
-                    is_active=True
-                ),
-                Customer(
-                    name="City Beverages",
-                    address="321 Elm St",
-                    delivery_day="Friday",
-                    account_type="Corporate",
-                    territory="South",
-                    is_active=True
-                ),
-                Customer(
-                    name="Inactive Store",
-                    address="654 Maple Dr",
-                    delivery_day="Monday",
-                    account_type="Regular",
-                    territory="North",
-                    is_active=False
-                )
-            ]
-            for customer in test_customers:
-                db.session.add(customer)
-            db.session.commit()
-            print("Test customers created successfully")
-    except Exception as e:
-        print(f"Error creating test customers: {str(e)}")
-        db.session.rollback()
-        raise
-
 with app.app_context():
     import models
     from auth import auth, init_auth
@@ -122,11 +66,10 @@ with app.app_context():
     init_auth(app)
     
     try:
-        print("Creating database tables if they don't exist...")
+        print("Creating database tables...")
         db.create_all()
-        print("Database tables created/verified successfully")
+        print("Database tables created successfully")
         create_admin_user()
-        create_test_customers()
     except Exception as e:
         print(f"Error during application startup: {str(e)}")
         raise

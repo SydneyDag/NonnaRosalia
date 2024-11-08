@@ -1,6 +1,6 @@
 import os
 import logging
-from flask import Flask
+from flask import Flask, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy.exc import SQLAlchemyError, OperationalError, DatabaseError
@@ -44,6 +44,9 @@ def init_database():
             db.init_app(app)
             with app.app_context():
                 db.engine.connect()
+                # Test query to verify connection
+                db.session.execute('SELECT 1')
+                db.session.commit()
             logger.info("Database connection successful")
             return True
         except OperationalError as e:
@@ -57,6 +60,9 @@ def init_database():
                 raise
         except DatabaseError as e:
             logger.critical(f"Critical database error: {str(e)}")
+            raise
+        except Exception as e:
+            logger.critical(f"Unexpected error during database initialization: {str(e)}")
             raise
 
 def create_admin_user():
@@ -95,6 +101,29 @@ def create_admin_user():
         logger.error(f"Unexpected error during admin user creation: {str(e)}")
         db.session.rollback()
         raise
+
+# Global error handlers
+@app.errorhandler(404)
+def not_found_error(error):
+    logger.error(f"404 error: {str(error)}")
+    return jsonify({'error': 'Resource not found'}), 404
+
+@app.errorhandler(500)
+def internal_error(error):
+    logger.error(f"500 error: {str(error)}")
+    db.session.rollback()
+    return jsonify({'error': 'Internal server error occurred'}), 500
+
+@app.errorhandler(SQLAlchemyError)
+def handle_db_error(error):
+    logger.error(f"Database error: {str(error)}")
+    db.session.rollback()
+    return jsonify({'error': 'Database error occurred'}), 500
+
+@app.errorhandler(Exception)
+def handle_generic_error(error):
+    logger.error(f"Unexpected error: {str(error)}")
+    return jsonify({'error': 'An unexpected error occurred'}), 500
 
 # Initialize database
 init_database()

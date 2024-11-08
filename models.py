@@ -23,6 +23,7 @@ class Customer(db.Model):
     account_type = db.Column(db.String(20), nullable=False)  # Regular, Premium, etc.
     territory = db.Column(db.String(50), nullable=False)
     balance = db.Column(db.Numeric(10, 2), default=0)
+    is_active = db.Column(db.Boolean, nullable=False, default=True)
     orders = db.relationship('Order', backref='customer', lazy=True)
 
 class Order(db.Model):

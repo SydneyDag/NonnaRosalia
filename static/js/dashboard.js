@@ -1,12 +1,12 @@
 document.addEventListener('DOMContentLoaded', function() {
-    const deliveryDate = document.getElementById('deliveryDate');
-    const dailyDriverExpense = document.getElementById('dailyDriverExpense');
-
-    // Create alert container
+    // Create alert container at the start
     const container = document.querySelector('.container');
     const alertContainer = document.createElement('div');
     alertContainer.className = 'alert-container mb-3';
-    container.insertBefore(alertContainer, container.firstChild);
+    container.prepend(alertContainer);
+
+    const deliveryDate = document.getElementById('deliveryDate');
+    const dailyDriverExpense = document.getElementById('dailyDriverExpense');
     
     const ordersTable = $('#ordersTable').DataTable({
         columns: [
@@ -84,8 +84,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Initialize date picker with today's date
     deliveryDate.valueAsDate = new Date();
-    loadOrders();
-
+    
     // Show/hide Add Order button based on selected date
     function updateAddOrderButton() {
         const today = new Date().toISOString().split('T')[0];
@@ -112,8 +111,12 @@ document.addEventListener('DOMContentLoaded', function() {
             showError('Error: Could not find order data');
             return;
         }
-        const updatedData = collectRowData(row, data);
-        updateOrder(data.id, updatedData);
+        try {
+            const updatedData = collectRowData(row, data);
+            updateOrder(data.id, updatedData);
+        } catch (error) {
+            showError(error.message);
+        }
     });
 
     async function updateOrder(orderId, updatedData) {
@@ -156,6 +159,10 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             
             const customerSelect = document.getElementById('customerId');
+            if (!customerSelect) {
+                console.warn('Customer select element not found');
+                return;
+            }
             customerSelect.innerHTML = customers.map(c => 
                 `<option value="${c.id}">${c.name}</option>`
             ).join('');
@@ -167,6 +174,10 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function collectRowData(row, originalData) {
+        if (!row || !originalData) {
+            throw new Error('Invalid row data');
+        }
+
         const data = {
             id: originalData.id,
             total_cases: parseInt(row.find('.cases-input').val()) || 0,
@@ -188,7 +199,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     document.getElementById('saveOrder').addEventListener('click', async function() {
         try {
-            const customerId = document.getElementById('customerId').value;
+            const customerId = document.getElementById('customerId')?.value;
             if (!customerId) {
                 throw new Error('Please select a customer');
             }
@@ -323,9 +334,12 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function updateTotals(orders) {
+        if (!orders) return;
+        
         try {
             if (!Array.isArray(orders)) {
-                throw new Error('Invalid orders data for totals calculation');
+                console.warn('Invalid orders data for totals calculation');
+                return;
             }
 
             const totals = orders.reduce((acc, order) => ({
@@ -367,8 +381,7 @@ document.addEventListener('DOMContentLoaded', function() {
             updateElement('tableTotalPayments', totals.totalPayments);
 
         } catch (error) {
-            console.error('Error updating totals:', error);
-            showError('Failed to update totals: ' + error.message);
+            console.warn('Error updating totals:', error);
         }
     }
 
@@ -379,12 +392,8 @@ document.addEventListener('DOMContentLoaded', function() {
             ${message}
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         `;
-        document.querySelector('.alert-container').appendChild(alertDiv);
-        setTimeout(() => {
-            if (alertDiv && alertDiv.parentNode) {
-                alertDiv.remove();
-            }
-        }, 5000);
+        alertContainer.appendChild(alertDiv);
+        setTimeout(() => alertDiv.remove(), 5000);
     }
 
     function showSuccess(message) {
@@ -394,16 +403,13 @@ document.addEventListener('DOMContentLoaded', function() {
             ${message}
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         `;
-        document.querySelector('.alert-container').appendChild(alertDiv);
-        setTimeout(() => {
-            if (alertDiv && alertDiv.parentNode) {
-                alertDiv.remove();
-            }
-        }, 3000);
+        alertContainer.appendChild(alertDiv);
+        setTimeout(() => alertDiv.remove(), 3000);
     }
 
     // Initial setup
     updateAddOrderButton();
+    loadOrders();
     loadDailyDriverExpense();
     loadCustomers();
 });

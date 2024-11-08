@@ -41,7 +41,7 @@
         <div class="card-body">
             <!-- Summary Cards -->
             <div class="row mb-4">
-                <div class="col-md-3">
+                <div class="col-md-4">
                     <div class="card bg-secondary">
                         <div class="card-body text-center">
                             <h6 class="card-title">Total Cases</h6>
@@ -49,7 +49,7 @@
                         </div>
                     </div>
                 </div>
-                <div class="col-md-3">
+                <div class="col-md-4">
                     <div class="card bg-secondary">
                         <div class="card-body text-center">
                             <h6 class="card-title">Total Cost</h6>
@@ -57,19 +57,11 @@
                         </div>
                     </div>
                 </div>
-                <div class="col-md-3">
+                <div class="col-md-4">
                     <div class="card bg-secondary">
                         <div class="card-body text-center">
                             <h6 class="card-title">Total Payments</h6>
                             <h4 id="totalPayments" class="mb-0">$0.00</h4>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-3">
-                    <div class="card bg-secondary">
-                        <div class="card-body text-center">
-                            <h6 class="card-title">Net Income</h6>
-                            <h4 id="netIncome" class="mb-0">$0.00</h4>
                         </div>
                     </div>
                 </div>
@@ -128,12 +120,8 @@
                         <input type="number" class="form-control" id="totalCases" required min="1">
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">Cost per Case</label>
-                        <input type="number" class="form-control" id="costPerCase" required min="0" step="0.01">
-                    </div>
-                    <div class="mb-3">
                         <label class="form-label">Total Cost</label>
-                        <input type="number" class="form-control" id="totalCost" readonly>
+                        <input type="number" class="form-control" id="totalCost" required min="0" step="0.01">
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Payment Details</label>
@@ -155,10 +143,6 @@
                     <div class="mb-3">
                         <label class="form-label">Total Payment Received</label>
                         <input type="number" class="form-control" id="paymentReceived" readonly>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Driver Expense</label>
-                        <input type="number" class="form-control" id="driverExpense" min="0" step="0.01" value="0">
                     </div>
                 </form>
             </div>

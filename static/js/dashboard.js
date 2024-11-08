@@ -89,10 +89,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
     document.getElementById('saveDriverExpense').addEventListener('click', saveDailyDriverExpense);
 
-    // Calculate total cost when cases or cost per case changes
-    document.getElementById('totalCases').addEventListener('input', calculateTotal);
-    document.getElementById('costPerCase').addEventListener('input', calculateTotal);
-
     // Calculate total payment when any payment field changes
     document.querySelectorAll('.payment-input').forEach(input => {
         input.addEventListener('input', calculateTotalPayment);
@@ -127,14 +123,6 @@ document.addEventListener('DOMContentLoaded', function() {
             ).join('');
             document.getElementById('customerId').innerHTML = customerOptions;
         });
-
-    function calculateTotal() {
-        const cases = document.getElementById('totalCases').value || 0;
-        const costPerCase = document.getElementById('costPerCase').value || 0;
-        const total = cases * costPerCase;
-        document.getElementById('totalCost').value = total.toFixed(2);
-        validatePayments();
-    }
 
     function calculateTotalPayment() {
         const cash = parseFloat(document.getElementById('paymentCash').value) || 0;
@@ -179,10 +167,7 @@ document.addEventListener('DOMContentLoaded', function() {
             payment_cash: parseFloat(document.getElementById('paymentCash').value) || 0,
             payment_check: parseFloat(document.getElementById('paymentCheck').value) || 0,
             payment_credit: parseFloat(document.getElementById('paymentCredit').value) || 0,
-            payment_received: parseFloat(document.getElementById('paymentCash').value || 0) +
-                            parseFloat(document.getElementById('paymentCheck').value || 0) +
-                            parseFloat(document.getElementById('paymentCredit').value || 0),
-            driver_expense: parseFloat(document.getElementById('driverExpense').value) || 0
+            payment_received: parseFloat(document.getElementById('paymentReceived').value) || 0
         };
 
         fetch('/orders', {
@@ -279,11 +264,6 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('totalCheckPayments').textContent = `$${totals.checkPayments.toFixed(2)}`;
         document.getElementById('totalCreditPayments').textContent = `$${totals.creditPayments.toFixed(2)}`;
         document.getElementById('tableTotalPayments').textContent = `$${totals.totalPayments.toFixed(2)}`;
-
-        // Calculate and update net income
-        const driverExpense = parseFloat(dailyDriverExpense.value) || 0;
-        const netIncome = totals.totalPayments - driverExpense;
-        document.getElementById('netIncome').textContent = `$${netIncome.toFixed(2)}`;
     }
 
     // Initial updates

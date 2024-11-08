@@ -83,11 +83,8 @@ document.addEventListener('DOMContentLoaded', function() {
     // Event Listeners
     deliveryDate.addEventListener('change', () => {
         loadOrders();
-        loadDailyDriverExpense();
         updateAddOrderButton();
     });
-
-    document.getElementById('saveDriverExpense').addEventListener('click', saveDailyDriverExpense);
 
     // Event delegation for input changes in the table
     $('#ordersTable').on('change', 'input', function() {
@@ -109,7 +106,7 @@ document.addEventListener('DOMContentLoaded', function() {
         })
         .catch(error => {
             console.error('Error updating order:', error);
-            alert('Error updating order. Please try again.');
+            showError('Error updating order. Please try again.');
         });
     });
 
@@ -150,64 +147,79 @@ document.addEventListener('DOMContentLoaded', function() {
         })
         .then(response => {
             if (!response.ok) {
-                throw new Error('Network response was not ok');
+                return response.json().then(data => {
+                    throw new Error(data.error || 'Failed to create order');
+                });
             }
             return response.json();
         })
-        .then(() => {
-            $('#orderModal').modal('hide');
-            loadOrders();
+        .then(data => {
+            if (data.success && data.order) {
+                // Add the new order directly to the table
+                ordersTable.row.add(data.order).draw();
+                updateTotals(ordersTable.data());
+                $('#orderModal').modal('hide');
+                
+                showSuccess('Order created successfully');
+            }
         })
         .catch(error => {
             console.error('Error saving order:', error);
-            alert('Error saving order. Please try again.');
+            showError(error.message);
         });
     });
 
+    function showSuccess(message) {
+        const alertDiv = document.createElement('div');
+        alertDiv.className = 'alert alert-success alert-dismissible fade show';
+        alertDiv.innerHTML = `
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        
+        // Find the table's parent card-body
+        const cardBody = document.querySelector('#ordersTable').closest('.card-body');
+        // Insert before the first child of card-body
+        cardBody.insertBefore(alertDiv, cardBody.firstChild);
+        
+        // Auto-dismiss after 3 seconds
+        setTimeout(() => {
+            alertDiv.remove();
+        }, 3000);
+    }
+
+    function showError(message) {
+        const alertDiv = document.createElement('div');
+        alertDiv.className = 'alert alert-danger alert-dismissible fade show';
+        alertDiv.innerHTML = `
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        
+        // Find the table's parent card-body
+        const cardBody = document.querySelector('#ordersTable').closest('.card-body');
+        // Insert before the first child of card-body
+        cardBody.insertBefore(alertDiv, cardBody.firstChild);
+        
+        // Auto-dismiss after 5 seconds
+        setTimeout(() => {
+            alertDiv.remove();
+        }, 5000);
+    }
+
     function loadOrders() {
-        const today = new Date().toISOString().split('T')[0];
+        console.log('Loading orders for date:', deliveryDate.value);
         fetch(`/api/orders/${deliveryDate.value}`)
             .then(response => response.json())
             .then(data => {
-                // Mark orders as editable if they're for today
-                const processedData = data.map(order => ({
-                    ...order,
-                    isEditable: deliveryDate.value === today
-                }));
-                ordersTable.clear().rows.add(processedData).draw();
-                updateTotals(processedData);
-            });
-    }
-
-    function loadDailyDriverExpense() {
-        fetch(`/api/daily_driver_expense/${deliveryDate.value}`)
-            .then(response => response.json())
-            .then(data => {
-                dailyDriverExpense.value = data.amount || 0;
-                updateTotals(ordersTable.data());
+                console.log('Orders loaded successfully');
+                ordersTable.clear().rows.add(data).draw();
+                updateTotals(data);
             })
-            .catch(() => {
-                dailyDriverExpense.value = 0;
-                updateTotals(ordersTable.data());
+            .catch(error => {
+                console.error('Error loading orders:', error);
+                showError('Error loading orders. Please try again.');
             });
-    }
-
-    function saveDailyDriverExpense() {
-        const amount = parseFloat(dailyDriverExpense.value) || 0;
-        fetch('/api/daily_driver_expense', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                date: deliveryDate.value,
-                amount: amount
-            })
-        })
-        .then(response => response.json())
-        .then(() => {
-            updateTotals(ordersTable.data());
-        });
     }
 
     function updateTotals(orders) {
@@ -244,5 +256,4 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Initial updates
     updateAddOrderButton();
-    loadDailyDriverExpense();
 });

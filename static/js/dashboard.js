@@ -134,8 +134,7 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('saveOrder').addEventListener('click', function() {
         const orderData = {
             customer_id: document.getElementById('customerId').value,
-            delivery_date: deliveryDate.value,
-            is_one_time_delivery: document.getElementById('isOneTimeDelivery').checked
+            delivery_date: deliveryDate.value
         };
 
         fetch('/orders', {

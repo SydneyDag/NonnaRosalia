@@ -35,7 +35,15 @@ document.addEventListener('DOMContentLoaded', function() {
                 render: value => `$${parseFloat(value).toFixed(2)}`
             },
             { 
-                data: 'payment_received',
+                data: 'payment_cash',
+                render: value => `$${parseFloat(value).toFixed(2)}`
+            },
+            { 
+                data: 'payment_check',
+                render: value => `$${parseFloat(value).toFixed(2)}`
+            },
+            { 
+                data: 'payment_credit',
                 render: value => `$${parseFloat(value).toFixed(2)}`
             },
             {
@@ -75,8 +83,8 @@ document.addEventListener('DOMContentLoaded', function() {
             <div class="col-md-3">
                 <select id="statusFilter" class="form-select">
                     <option value="">All Statuses</option>
-                    <option value="open">Open</option>
-                    <option value="closed">Closed</option>
+                    <option value="OPEN">Open</option>
+                    <option value="CLOSED">Closed</option>
                 </select>
             </div>
             <div class="col-md-6">
@@ -112,7 +120,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     $('#statusFilter').on('change', function() {
-        ordersTable.column(7).search(this.value.toUpperCase()).draw();
+        ordersTable.column(9).search(this.value).draw();
     });
 
     $('#dateRangeStart, #dateRangeEnd').on('change', function() {

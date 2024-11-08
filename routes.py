@@ -6,6 +6,7 @@ from decimal import Decimal
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy import func, and_
 import os
+import re
 from utils.pdf_generator import generate_invoice_pdf, generate_report_pdf
 
 routes = Blueprint('routes', __name__)
@@ -202,8 +203,12 @@ def generate_invoice(order_id):
         order = Order.query.get_or_404(order_id)
         customer = Customer.query.get_or_404(order.customer_id)
         
-        # Generate a unique filename for the invoice
-        filename = f"invoice_{order_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+        # Clean customer name for filename (remove special chars and spaces)
+        clean_name = re.sub(r'[^\w\s-]', '', customer.name.lower())
+        clean_name = re.sub(r'[\s]+', '_', clean_name)
+        
+        # Generate filename with customer name and delivery date
+        filename = f"invoice_{clean_name}_{order.delivery_date.strftime('%Y-%m-%d')}.pdf"
         filepath = os.path.join("/tmp", filename)
         
         # Generate the PDF
@@ -214,7 +219,7 @@ def generate_invoice(order_id):
             filepath,
             mimetype='application/pdf',
             as_attachment=True,
-            download_name=f"invoice_{order_id}.pdf"
+            download_name=filename
         )
     except Exception as e:
         flash(f'Error generating invoice: {str(e)}', 'error')

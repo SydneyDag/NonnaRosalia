@@ -1,5 +1,6 @@
 document.addEventListener('DOMContentLoaded', function() {
     const deliveryDate = document.getElementById('deliveryDate');
+    const dailyDriverExpense = document.getElementById('dailyDriverExpense');
     
     const ordersTable = $('#ordersTable').DataTable({
         columns: [
@@ -82,8 +83,11 @@ document.addEventListener('DOMContentLoaded', function() {
     // Event Listeners
     deliveryDate.addEventListener('change', () => {
         loadOrders();
+        loadDailyDriverExpense();
         updateAddOrderButton();
     });
+
+    document.getElementById('saveDriverExpense').addEventListener('click', saveDailyDriverExpense);
 
     // Calculate total cost when cases or cost per case changes
     document.getElementById('totalCases').addEventListener('input', calculateTotal);
@@ -100,6 +104,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const data = ordersTable.row(row).data();
         const updatedData = collectRowData(row, data);
         
+        // Update the order via API
         fetch('/api/orders/' + data.id, {
             method: 'PUT',
             headers: {
@@ -176,7 +181,8 @@ document.addEventListener('DOMContentLoaded', function() {
             payment_credit: parseFloat(document.getElementById('paymentCredit').value) || 0,
             payment_received: parseFloat(document.getElementById('paymentCash').value || 0) +
                             parseFloat(document.getElementById('paymentCheck').value || 0) +
-                            parseFloat(document.getElementById('paymentCredit').value || 0)
+                            parseFloat(document.getElementById('paymentCredit').value || 0),
+            driver_expense: parseFloat(document.getElementById('driverExpense').value) || 0
         };
 
         fetch('/orders', {
@@ -212,6 +218,37 @@ document.addEventListener('DOMContentLoaded', function() {
             });
     }
 
+    function loadDailyDriverExpense() {
+        fetch(`/api/daily_driver_expense/${deliveryDate.value}`)
+            .then(response => response.json())
+            .then(data => {
+                dailyDriverExpense.value = data.amount || 0;
+                updateTotals(ordersTable.data());
+            })
+            .catch(() => {
+                dailyDriverExpense.value = 0;
+                updateTotals(ordersTable.data());
+            });
+    }
+
+    function saveDailyDriverExpense() {
+        const amount = parseFloat(dailyDriverExpense.value) || 0;
+        fetch('/api/daily_driver_expense', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                date: deliveryDate.value,
+                amount: amount
+            })
+        })
+        .then(response => response.json())
+        .then(() => {
+            updateTotals(ordersTable.data());
+        });
+    }
+
     function updateTotals(orders) {
         const totals = orders.reduce((acc, order) => {
             acc.cases += order.total_cases;
@@ -234,7 +271,6 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('totalCases').textContent = totals.cases;
         document.getElementById('totalCost').textContent = `$${totals.cost.toFixed(2)}`;
         document.getElementById('totalPayments').textContent = `$${totals.totalPayments.toFixed(2)}`;
-        document.getElementById('netIncome').textContent = `$${totals.totalPayments.toFixed(2)}`;
 
         // Update table totals
         document.getElementById('tableTotalCases').textContent = totals.cases;
@@ -243,21 +279,14 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('totalCheckPayments').textContent = `$${totals.checkPayments.toFixed(2)}`;
         document.getElementById('totalCreditPayments').textContent = `$${totals.creditPayments.toFixed(2)}`;
         document.getElementById('tableTotalPayments').textContent = `$${totals.totalPayments.toFixed(2)}`;
-    }
 
-    // Reset form when modal is opened for new order
-    $('#orderModal').on('show.bs.modal', function(e) {
-        if (!e.relatedTarget?.closest('.edit-order')) {
-            document.getElementById('orderForm').reset();
-            document.getElementById('orderId').value = '';
-            document.getElementById('deliveryDate').valueAsDate = new Date();
-            document.getElementById('paymentCash').value = '0';
-            document.getElementById('paymentCheck').value = '0';
-            document.getElementById('paymentCredit').value = '0';
-            document.getElementById('paymentReceived').value = '0';
-        }
-    });
+        // Calculate and update net income
+        const driverExpense = parseFloat(dailyDriverExpense.value) || 0;
+        const netIncome = totals.totalPayments - driverExpense;
+        document.getElementById('netIncome').textContent = `$${netIncome.toFixed(2)}`;
+    }
 
     // Initial updates
     updateAddOrderButton();
+    loadDailyDriverExpense();
 });

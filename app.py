@@ -1,8 +1,16 @@
 import os
+import logging
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy.exc import SQLAlchemyError
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 class Base(DeclarativeBase):
     pass
@@ -22,37 +30,37 @@ db.init_app(app)
 def create_admin_user():
     try:
         from models import User
-        print("Checking for existing admin user...")
+        logger.info("Checking for existing admin user...")
         admin = User.query.filter_by(username='admin').first()
         
         if admin:
-            print(f"Admin user already exists (ID: {admin.id})")
+            logger.info(f"Admin user already exists (ID: {admin.id})")
             # Verify password hash exists
             if not admin.password_hash:
-                print("Updating admin password hash...")
+                logger.info("Updating admin password hash...")
                 admin.set_password('admin123')
                 db.session.commit()
-                print("Admin password hash updated successfully")
+                logger.info("Admin password hash updated successfully")
         else:
-            print("Creating new admin user...")
+            logger.info("Creating new admin user...")
             admin = User(username='admin', email='admin@example.com')
             admin.set_password('admin123')
             db.session.add(admin)
             db.session.commit()
-            print(f"Admin user created successfully (ID: {admin.id})")
+            logger.info(f"Admin user created successfully (ID: {admin.id})")
             
         # Verify the password works
         if admin.check_password('admin123'):
-            print("Admin password verification successful")
+            logger.info("Admin password verification successful")
         else:
-            print("WARNING: Admin password verification failed!")
+            logger.warning("Admin password verification failed!")
             
     except SQLAlchemyError as e:
-        print(f"Database error during admin user creation: {str(e)}")
+        logger.error(f"Database error during admin user creation: {str(e)}")
         db.session.rollback()
         raise
     except Exception as e:
-        print(f"Unexpected error during admin user creation: {str(e)}")
+        logger.error(f"Unexpected error during admin user creation: {str(e)}")
         db.session.rollback()
         raise
 
@@ -66,10 +74,10 @@ with app.app_context():
     init_auth(app)
     
     try:
-        print("Creating database tables...")
+        logger.info("Creating database tables...")
         db.create_all()
-        print("Database tables created successfully")
+        logger.info("Database tables created successfully")
         create_admin_user()
     except Exception as e:
-        print(f"Error during application startup: {str(e)}")
+        logger.error(f"Error during application startup: {str(e)}")
         raise

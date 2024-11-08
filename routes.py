@@ -7,8 +7,10 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy import func, and_
 import os
 import re
+import logging
 from utils.pdf_generator import generate_invoice_pdf, generate_report_pdf
 
+logger = logging.getLogger(__name__)
 routes = Blueprint('routes', __name__)
 
 VALID_TERRITORIES = ['North', 'South']
@@ -382,3 +384,62 @@ def delete_customer():
     except Exception as e:
         db.session.rollback()
         return jsonify({'error': str(e)}), 400
+
+@routes.route('/api/daily_driver_expense/<date>', methods=['GET'])
+@login_required
+def get_daily_driver_expense(date):
+    try:
+        delivery_date = datetime.strptime(date, '%Y-%m-%d').date()
+        orders = Order.query.filter(
+            Order.delivery_date == delivery_date
+        ).all()
+        
+        total_expense = sum(float(order.driver_expense or 0) for order in orders)
+        return jsonify({'amount': total_expense})
+    except ValueError:
+        logger.error(f"Invalid date format received: {date}")
+        return jsonify({'error': 'Invalid date format'}), 400
+    except Exception as e:
+        logger.error(f"Error retrieving daily driver expense: {str(e)}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@routes.route('/api/daily_driver_expense', methods=['POST'])
+@login_required
+def update_daily_driver_expense():
+    try:
+        data = request.json
+        if not data or 'date' not in data or 'amount' not in data:
+            return jsonify({'error': 'Missing required fields'}), 400
+
+        delivery_date = datetime.strptime(data['date'], '%Y-%m-%d').date()
+        amount = Decimal(str(data['amount']))
+
+        # Update driver expense for all orders on this date
+        orders = Order.query.filter(
+            Order.delivery_date == delivery_date
+        ).all()
+        
+        if orders:
+            # Distribute the amount evenly among orders
+            expense_per_order = amount / len(orders)
+            for order in orders:
+                order.driver_expense = expense_per_order
+            
+            db.session.commit()
+            logger.info(f"Updated driver expense for {len(orders)} orders on {delivery_date}")
+            return jsonify({'success': True})
+        else:
+            logger.warning(f"No orders found for date: {delivery_date}")
+            return jsonify({'error': 'No orders found for the specified date'}), 404
+
+    except ValueError as e:
+        logger.error(f"Invalid data format: {str(e)}")
+        return jsonify({'error': 'Invalid data format'}), 400
+    except SQLAlchemyError as e:
+        logger.error(f"Database error: {str(e)}")
+        db.session.rollback()
+        return jsonify({'error': 'Database error occurred'}), 500
+    except Exception as e:
+        logger.error(f"Unexpected error: {str(e)}")
+        db.session.rollback()
+        return jsonify({'error': 'Internal server error'}), 500

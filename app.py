@@ -67,7 +67,7 @@ def create_admin_user():
 with app.app_context():
     import models
     from auth import auth, init_auth
-    from routes import routes
+    from routes import routes, create_test_data
     
     app.register_blueprint(auth)
     app.register_blueprint(routes)
@@ -78,6 +78,7 @@ with app.app_context():
         db.create_all()
         logger.info("Database tables created successfully")
         create_admin_user()
+        create_test_data()
     except Exception as e:
         logger.error(f"Error during application startup: {str(e)}")
         raise

@@ -9,6 +9,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     $('#territoryFilter').val('');
                     $('#deliveryDayFilter').val('');
                     $('#accountTypeFilter').val('');
+                    $('#statusFilter').val('');
                     customersTable.search('').columns().search('').draw();
                 }
             }
@@ -19,6 +20,13 @@ document.addEventListener('DOMContentLoaded', function() {
             { data: 'delivery_day' },
             { data: 'account_type' },
             { data: 'territory' },
+            { 
+                data: 'is_active',
+                render: function(data) {
+                    const statusClass = data ? 'badge bg-success' : 'badge bg-danger';
+                    return `<span class="${statusClass}">${data ? 'Active' : 'Inactive'}</span>`;
+                }
+            },
             { 
                 data: 'balance',
                 render: value => `$${parseFloat(value).toFixed(2)}`
@@ -38,12 +46,12 @@ document.addEventListener('DOMContentLoaded', function() {
     // Add filter controls above the table
     $('.card-body').prepend(`
         <div class="row mb-3">
-            <div class="col-md-4">
+            <div class="col-md-3">
                 <select id="territoryFilter" class="form-select">
                     <option value="">All Territories</option>
                 </select>
             </div>
-            <div class="col-md-4">
+            <div class="col-md-3">
                 <select id="deliveryDayFilter" class="form-select">
                     <option value="">All Delivery Days</option>
                     <option value="Monday">Monday</option>
@@ -55,11 +63,18 @@ document.addEventListener('DOMContentLoaded', function() {
                     <option value="Sunday">Sunday</option>
                 </select>
             </div>
-            <div class="col-md-4">
+            <div class="col-md-3">
                 <select id="accountTypeFilter" class="form-select">
                     <option value="">All Account Types</option>
                     <option value="Regular">Regular</option>
                     <option value="Corporate">Corporate</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <select id="statusFilter" class="form-select">
+                    <option value="">All Statuses</option>
+                    <option value="true">Active</option>
+                    <option value="false">Inactive</option>
                 </select>
             </div>
         </div>
@@ -86,6 +101,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
     $('#accountTypeFilter').on('change', function() {
         customersTable.column(3).search(this.value).draw();
+    });
+
+    $('#statusFilter').on('change', function() {
+        const searchValue = this.value === 'true' ? 'Active' : (this.value === 'false' ? 'Inactive' : '');
+        customersTable.column(5).search(searchValue).draw();
     });
 
     loadCustomers();
@@ -121,6 +141,7 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('deliveryDay').value = data.delivery_day;
         document.getElementById('accountType').value = data.account_type;
         document.getElementById('territory').value = data.territory;
+        document.getElementById('isActive').checked = data.is_active;
     }
 
     function saveCustomer() {
@@ -130,7 +151,8 @@ document.addEventListener('DOMContentLoaded', function() {
             address: document.getElementById('address').value,
             delivery_day: document.getElementById('deliveryDay').value,
             account_type: document.getElementById('accountType').value,
-            territory: document.getElementById('territory').value
+            territory: document.getElementById('territory').value,
+            is_active: document.getElementById('isActive').checked
         };
 
         const method = id ? 'PUT' : 'POST';

@@ -177,7 +177,14 @@ def download_report():
 @routes.route('/api/customers')
 @login_required
 def get_customers():
-    customers = Customer.query.all()
+    # Filter active customers for order dropdowns if specified
+    orders_only = request.args.get('orders_only', 'false') == 'true'
+    query = Customer.query
+    
+    if orders_only:
+        query = query.filter_by(is_active=True)
+        
+    customers = query.all()
     return jsonify([{
         'id': c.id,
         'name': c.name,
@@ -185,7 +192,8 @@ def get_customers():
         'delivery_day': c.delivery_day,
         'account_type': c.account_type,
         'territory': c.territory,
-        'balance': float(c.balance)
+        'balance': float(c.balance),
+        'is_active': c.is_active
     } for c in customers])
 
 @routes.route('/api/orders/<date>')
@@ -197,11 +205,15 @@ def get_orders_by_date(date):
         
         orders = Order.query.join(Customer).filter(
             Order.delivery_date == delivery_date,
-            Customer.delivery_day == weekday
+            Customer.delivery_day == weekday,
+            Customer.is_active == True
         ).all()
         
         if delivery_date == datetime.now().date() and not orders:
-            scheduled_customers = Customer.query.filter_by(delivery_day=weekday).all()
+            scheduled_customers = Customer.query.filter_by(
+                delivery_day=weekday,
+                is_active=True
+            ).all()
             
             for customer in scheduled_customers:
                 order = Order(
@@ -221,7 +233,8 @@ def get_orders_by_date(date):
             
             orders = Order.query.join(Customer).filter(
                 Order.delivery_date == delivery_date,
-                Customer.delivery_day == weekday
+                Customer.delivery_day == weekday,
+                Customer.is_active == True
             ).all()
         
         return jsonify([{
@@ -279,6 +292,11 @@ def create_order():
         data = request.json
         delivery_date = datetime.strptime(data['delivery_date'], '%Y-%m-%d').date()
         
+        # Verify customer is active
+        customer = Customer.query.get_or_404(data['customer_id'])
+        if not customer.is_active:
+            return jsonify({'error': 'Cannot create order for inactive customer'}), 400
+            
         order = Order(
             customer_id=data['customer_id'],
             order_date=delivery_date,
@@ -341,6 +359,7 @@ def create_customer():
             delivery_day=data['delivery_day'],
             account_type=data['account_type'],
             territory=data['territory'],
+            is_active=data.get('is_active', True),
             balance=0
         )
         db.session.add(customer)
@@ -364,6 +383,7 @@ def update_customer():
         customer.delivery_day = data['delivery_day']
         customer.account_type = data['account_type']
         customer.territory = data['territory']
+        customer.is_active = data.get('is_active', True)
         db.session.commit()
         return jsonify({'success': True})
     except Exception as e:

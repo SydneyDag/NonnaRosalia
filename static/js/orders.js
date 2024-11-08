@@ -39,17 +39,26 @@ document.addEventListener('DOMContentLoaded', function() {
                 render: value => `$${parseFloat(value).toFixed(2)}`
             },
             {
-                data: 'driver_expense',
-                render: value => `$${parseFloat(value).toFixed(2)}`
+                data: null,
+                render: function(data) {
+                    const balance = parseFloat(data.total_cost) - parseFloat(data.payment_received);
+                    return `$${balance.toFixed(2)}`;
+                }
             },
-            { data: 'status' },
+            {
+                data: null,
+                render: function(data) {
+                    const balance = parseFloat(data.total_cost) - parseFloat(data.payment_received);
+                    return balance > 0 ? 'open' : 'closed';
+                }
+            },
             {
                 data: 'id',
-                render: function(data, type, row) {
+                render: function(data) {
                     return `
                         <button class="btn btn-sm btn-primary edit-order" data-id="${data}">Edit</button>
-                        <button class="btn btn-sm btn-secondary update-status" data-id="${data}">
-                            ${row.status === 'pending' ? 'Mark Delivered' : 'Update Status'}
+                        <button class="btn btn-sm btn-info" onclick="window.location.href='/generate_invoice/${data}'">
+                            Invoice
                         </button>
                     `;
                 }
@@ -68,9 +77,8 @@ document.addEventListener('DOMContentLoaded', function() {
             <div class="col-md-3">
                 <select id="statusFilter" class="form-select">
                     <option value="">All Statuses</option>
-                    <option value="pending">Pending</option>
-                    <option value="delivered">Delivered</option>
-                    <option value="cancelled">Cancelled</option>
+                    <option value="open">Open</option>
+                    <option value="closed">Closed</option>
                 </select>
             </div>
             <div class="col-md-6">
@@ -164,9 +172,7 @@ document.addEventListener('DOMContentLoaded', function() {
             payment_check: parseFloat(document.getElementById('paymentCheck').value) || 0,
             payment_credit: parseFloat(document.getElementById('paymentCredit').value) || 0,
             payment_received: parseFloat(document.getElementById('paymentReceived').value) || 0,
-            driver_expense: parseFloat(document.getElementById('driverExpense').value) || 0,
-            is_one_time_delivery: document.getElementById('isOneTimeDelivery').checked,
-            status: document.getElementById('orderStatus').value
+            is_one_time_delivery: document.getElementById('isOneTimeDelivery').checked
         };
 
         const method = orderId ? 'PUT' : 'POST';
@@ -198,31 +204,8 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('paymentCheck').value = row.payment_check || 0;
         document.getElementById('paymentCredit').value = row.payment_credit || 0;
         document.getElementById('paymentReceived').value = row.payment_received || 0;
-        document.getElementById('driverExpense').value = row.driver_expense || 0;
         document.getElementById('isOneTimeDelivery').checked = row.is_one_time_delivery;
-        document.getElementById('orderStatus').value = row.status;
         $('#orderModal').modal('show');
-    });
-
-    // Update status
-    $('#ordersTable').on('click', '.update-status', function() {
-        const row = ordersTable.row($(this).parents('tr')).data();
-        const newStatus = row.status === 'pending' ? 'delivered' : 'pending';
-        
-        fetch('/orders', {
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                id: row.id,
-                status: newStatus
-            })
-        })
-        .then(response => response.json())
-        .then(() => {
-            loadOrders();
-        });
     });
 
     // Reset form when modal is opened for new order
@@ -235,7 +218,6 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('paymentCheck').value = '0';
             document.getElementById('paymentCredit').value = '0';
             document.getElementById('paymentReceived').value = '0';
-            document.getElementById('driverExpense').value = '0';
             document.getElementById('isOneTimeDelivery').checked = false;
         }
     });

@@ -59,29 +59,54 @@ def create_admin_user():
 def create_test_customers():
     try:
         from models import Customer
-        print("Creating test customers...")
-        test_customers = [
-            Customer(
-                name="John's Store",
-                address="123 Main St",
-                delivery_day="Monday",
-                account_type="Regular",
-                territory="North",
-                is_active=True
-            ),
-            Customer(
-                name="Mary's Market",
-                address="456 Oak Ave",
-                delivery_day="Wednesday",
-                account_type="Corporate",
-                territory="South",
-                is_active=True
-            )
-        ]
-        for customer in test_customers:
-            db.session.add(customer)
-        db.session.commit()
-        print("Test customers created successfully")
+        if Customer.query.count() == 0:
+            print("Creating test customers...")
+            test_customers = [
+                Customer(
+                    name="North Store 1",
+                    address="123 Main St",
+                    delivery_day="Monday",
+                    account_type="Regular",
+                    territory="North",
+                    is_active=True
+                ),
+                Customer(
+                    name="South Market",
+                    address="456 Oak Ave",
+                    delivery_day="Wednesday",
+                    account_type="Corporate",
+                    territory="South",
+                    is_active=True
+                ),
+                Customer(
+                    name="Weekend Shop",
+                    address="789 Pine Rd",
+                    delivery_day="Saturday",
+                    account_type="Regular",
+                    territory="North",
+                    is_active=True
+                ),
+                Customer(
+                    name="City Beverages",
+                    address="321 Elm St",
+                    delivery_day="Friday",
+                    account_type="Corporate",
+                    territory="South",
+                    is_active=True
+                ),
+                Customer(
+                    name="Inactive Store",
+                    address="654 Maple Dr",
+                    delivery_day="Monday",
+                    account_type="Regular",
+                    territory="North",
+                    is_active=False
+                )
+            ]
+            for customer in test_customers:
+                db.session.add(customer)
+            db.session.commit()
+            print("Test customers created successfully")
     except Exception as e:
         print(f"Error creating test customers: {str(e)}")
         db.session.rollback()
@@ -97,11 +122,9 @@ with app.app_context():
     init_auth(app)
     
     try:
-        print("Dropping all tables...")
-        db.drop_all()
-        print("Creating database tables...")
+        print("Creating database tables if they don't exist...")
         db.create_all()
-        print("Database tables created successfully")
+        print("Database tables created/verified successfully")
         create_admin_user()
         create_test_customers()
     except Exception as e:

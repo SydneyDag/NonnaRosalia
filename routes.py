@@ -30,12 +30,6 @@ def customers():
 def orders():
     return render_template('orders.html')
 
-@routes.route('/api/territories')
-@login_required
-def get_territories():
-    territories = db.session.query(Customer.territory).distinct().all()
-    return jsonify([t[0] for t in territories if t[0]])
-
 @routes.route('/api/customers')
 @login_required
 def get_customers():
@@ -55,22 +49,19 @@ def get_customers():
 def get_orders_by_date(date):
     try:
         delivery_date = datetime.strptime(date, '%Y-%m-%d').date()
-        weekday = delivery_date.strftime('%A')
+        weekday = delivery_date.strftime('%A')  # Get the weekday name
         
-        # First, check if we have any customers for this weekday
-        scheduled_customers = Customer.query.filter_by(delivery_day=weekday).all()
-        
-        if not scheduled_customers:
-            return jsonify([])  # Return empty list if no customers scheduled
-            
         # Get existing orders for the date
         orders = Order.query.join(Customer).filter(
             Order.delivery_date == delivery_date,
-            Customer.delivery_day == weekday
+            Customer.delivery_day == weekday  # Only get orders for customers scheduled this day
         ).all()
         
-        # If it's today's date or future date and no orders exist, create empty orders
-        if len(orders) == 0:
+        # If it's today's date and no orders exist, create empty orders for scheduled customers
+        if delivery_date == datetime.now().date() and not orders:
+            # Get ONLY customers scheduled for today's weekday
+            scheduled_customers = Customer.query.filter_by(delivery_day=weekday).all()
+            
             # Create empty orders for scheduled customers
             for customer in scheduled_customers:
                 order = Order(
@@ -88,7 +79,7 @@ def get_orders_by_date(date):
                 db.session.add(order)
             db.session.commit()
             
-            # Reload orders
+            # Reload orders with the weekday filter
             orders = Order.query.join(Customer).filter(
                 Order.delivery_date == delivery_date,
                 Customer.delivery_day == weekday
@@ -108,7 +99,6 @@ def get_orders_by_date(date):
             'payment_received': float(order.payment_received)
         } for order in orders])
     except Exception as e:
-        print(f"Error in get_orders_by_date: {str(e)}")  # Add logging
         return jsonify({'error': str(e)}), 400
 
 @routes.route('/api/orders/<int:order_id>', methods=['PUT'])

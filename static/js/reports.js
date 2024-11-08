@@ -7,16 +7,26 @@ document.addEventListener('DOMContentLoaded', function() {
     const reportsTable = $('#reportsTable').DataTable({
         columns: [
             { 
-                data: 'order_date',
+                data: 'delivery_date',
                 render: function(data) {
                     return new Date(data).toLocaleDateString();
                 }
             },
-            { data: 'territory' },
-            { data: 'customer_name' },
             { data: 'total_cases' },
             { 
                 data: 'total_cost',
+                render: value => `$${parseFloat(value).toFixed(2)}`
+            },
+            { 
+                data: 'payment_cash',
+                render: value => `$${parseFloat(value).toFixed(2)}`
+            },
+            { 
+                data: 'payment_check',
+                render: value => `$${parseFloat(value).toFixed(2)}`
+            },
+            { 
+                data: 'payment_credit',
                 render: value => `$${parseFloat(value).toFixed(2)}`
             },
             { 
@@ -24,15 +34,32 @@ document.addEventListener('DOMContentLoaded', function() {
                 render: value => `$${parseFloat(value).toFixed(2)}`
             },
             {
-                data: null,
-                render: function(data) {
-                    const outstanding = parseFloat(data.total_cost) - parseFloat(data.payment_received);
-                    return `$${outstanding.toFixed(2)}`;
-                }
-            },
-            { data: 'status' }
+                data: 'outstanding',
+                render: value => `$${parseFloat(value).toFixed(2)}`
+            }
         ],
-        order: [[0, 'desc']]
+        order: [[0, 'desc']],
+        footerCallback: function(row, data, start, end, display) {
+            const api = this.api();
+
+            // Calculate column totals
+            const totalCases = api.column(1).data().reduce((a, b) => a + b, 0);
+            const totalCost = api.column(2).data().reduce((a, b) => a + parseFloat(b), 0);
+            const totalCash = api.column(3).data().reduce((a, b) => a + parseFloat(b), 0);
+            const totalCheck = api.column(4).data().reduce((a, b) => a + parseFloat(b), 0);
+            const totalCredit = api.column(5).data().reduce((a, b) => a + parseFloat(b), 0);
+            const totalPayments = api.column(6).data().reduce((a, b) => a + parseFloat(b), 0);
+            const totalOutstanding = api.column(7).data().reduce((a, b) => a + parseFloat(b), 0);
+
+            // Update footer cells
+            document.getElementById('tableTotalCases').textContent = totalCases;
+            document.getElementById('tableTotalCost').textContent = `$${totalCost.toFixed(2)}`;
+            document.getElementById('tableTotalCash').textContent = `$${totalCash.toFixed(2)}`;
+            document.getElementById('tableTotalCheck').textContent = `$${totalCheck.toFixed(2)}`;
+            document.getElementById('tableTotalCredit').textContent = `$${totalCredit.toFixed(2)}`;
+            document.getElementById('tableTotalPayments').textContent = `$${totalPayments.toFixed(2)}`;
+            document.getElementById('tableOutstandingBalance').textContent = `$${totalOutstanding.toFixed(2)}`;
+        }
     });
 
     // Initialize date inputs with current month range
@@ -75,12 +102,6 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('totalRevenue').textContent = `$${summary.total_revenue.toFixed(2)}`;
         document.getElementById('totalCases').textContent = summary.total_cases;
         document.getElementById('outstandingBalance').textContent = `$${summary.outstanding_balance.toFixed(2)}`;
-
-        // Update table footer
-        document.getElementById('tableTotalCases').textContent = summary.total_cases;
-        document.getElementById('tableTotalCost').textContent = `$${summary.total_revenue.toFixed(2)}`;
-        document.getElementById('tableTotalPayments').textContent = `$${summary.total_payments.toFixed(2)}`;
-        document.getElementById('tableOutstandingBalance').textContent = `$${summary.outstanding_balance.toFixed(2)}`;
     }
 
     function downloadReport() {

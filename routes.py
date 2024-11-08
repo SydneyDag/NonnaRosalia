@@ -48,43 +48,54 @@ def get_reports():
         end_date = datetime.strptime(request.args.get('end_date'), '%Y-%m-%d').date()
         territory = request.args.get('territory', '')
 
-        # Base query with date range
-        query = Order.query.join(Customer).filter(
-            Order.delivery_date.between(start_date, end_date)
+        # Base query with date range and optional territory filter
+        base_query = Order.query.join(Customer)
+        if territory:
+            base_query = base_query.filter(Customer.territory == territory)
+
+        # Group by date and calculate daily totals
+        daily_totals = (
+            base_query.filter(Order.delivery_date.between(start_date, end_date))
+            .with_entities(
+                Order.delivery_date,
+                func.sum(Order.total_cases).label('total_cases'),
+                func.sum(Order.total_cost).label('total_cost'),
+                func.sum(Order.payment_cash).label('total_cash'),
+                func.sum(Order.payment_check).label('total_check'),
+                func.sum(Order.payment_credit).label('total_credit'),
+                func.sum(Order.payment_received).label('total_payments')
+            )
+            .group_by(Order.delivery_date)
+            .order_by(Order.delivery_date)
+            .all()
         )
 
-        # Add territory filter if specified
-        if territory:
-            query = query.filter(Customer.territory == territory)
-
-        # Get orders with customer information
-        orders = query.all()
-
-        # Calculate summary metrics
+        # Calculate overall summary
         summary = {
-            'total_orders': len(orders),
-            'total_cases': sum(order.total_cases for order in orders),
-            'total_revenue': float(sum(order.total_cost for order in orders)),
-            'total_payments': float(sum(order.payment_received for order in orders)),
-            'outstanding_balance': float(sum(order.total_cost - order.payment_received for order in orders))
+            'total_orders': len(daily_totals),
+            'total_cases': sum(day.total_cases for day in daily_totals),
+            'total_revenue': float(sum(day.total_cost for day in daily_totals)),
+            'total_payments': float(sum(day.total_payments for day in daily_totals)),
+            'outstanding_balance': float(sum(day.total_cost - day.total_payments for day in daily_totals))
         }
 
-        # Format order data
-        orders_data = [{
-            'order_date': order.delivery_date.isoformat(),
-            'territory': order.customer.territory,
-            'customer_name': order.customer.name,
-            'total_cases': order.total_cases,
-            'total_cost': float(order.total_cost),
-            'payment_received': float(order.payment_received),
-            'status': 'CLOSED' if order.payment_received >= order.total_cost else 'OPEN'
-        } for order in orders]
+        # Format daily totals
+        daily_data = [{
+            'delivery_date': day.delivery_date.isoformat(),
+            'total_cases': day.total_cases,
+            'total_cost': float(day.total_cost),
+            'payment_cash': float(day.total_cash),
+            'payment_check': float(day.total_check),
+            'payment_credit': float(day.total_credit),
+            'payment_received': float(day.total_payments),
+            'outstanding': float(day.total_cost - day.total_payments)
+        } for day in daily_totals]
 
         return jsonify({
-            'orders': orders_data,
+            'orders': daily_data,
             'summary': summary
         })
-    except ValueError as e:
+    except ValueError:
         return jsonify({'error': 'Invalid date format'}), 400
     except SQLAlchemyError as e:
         return jsonify({'error': str(e)}), 500
@@ -99,35 +110,45 @@ def download_report():
         end_date = datetime.strptime(request.args.get('end_date'), '%Y-%m-%d').date()
         territory = request.args.get('territory', '')
 
-        # Base query with date range
-        query = Order.query.join(Customer).filter(
-            Order.delivery_date.between(start_date, end_date)
+        # Use the same query as /api/reports to maintain consistency
+        base_query = Order.query.join(Customer)
+        if territory:
+            base_query = base_query.filter(Customer.territory == territory)
+
+        daily_totals = (
+            base_query.filter(Order.delivery_date.between(start_date, end_date))
+            .with_entities(
+                Order.delivery_date,
+                func.sum(Order.total_cases).label('total_cases'),
+                func.sum(Order.total_cost).label('total_cost'),
+                func.sum(Order.payment_cash).label('total_cash'),
+                func.sum(Order.payment_check).label('total_check'),
+                func.sum(Order.payment_credit).label('total_credit'),
+                func.sum(Order.payment_received).label('total_payments')
+            )
+            .group_by(Order.delivery_date)
+            .order_by(Order.delivery_date)
+            .all()
         )
 
-        # Add territory filter if specified
-        if territory:
-            query = query.filter(Customer.territory == territory)
-
-        # Get orders
-        orders = query.all()
-
-        # Calculate summary metrics
         summary = {
-            'total_orders': len(orders),
-            'total_cases': sum(order.total_cases for order in orders),
-            'total_revenue': float(sum(order.total_cost for order in orders)),
-            'total_payments': float(sum(order.payment_received for order in orders)),
-            'outstanding_balance': float(sum(order.total_cost - order.payment_received for order in orders))
+            'total_orders': len(daily_totals),
+            'total_cases': sum(day.total_cases for day in daily_totals),
+            'total_revenue': float(sum(day.total_cost for day in daily_totals)),
+            'total_payments': float(sum(day.total_payments for day in daily_totals)),
+            'outstanding_balance': float(sum(day.total_cost - day.total_payments for day in daily_totals))
         }
 
-        # Format order data for PDF
-        orders_data = [{
-            'order_date': order.delivery_date.isoformat(),
-            'customer_name': order.customer.name,
-            'total_cases': order.total_cases,
-            'total_cost': float(order.total_cost),
-            'payment_received': float(order.payment_received)
-        } for order in orders]
+        # Format data for PDF
+        daily_data = [{
+            'order_date': day.delivery_date.isoformat(),
+            'total_cases': day.total_cases,
+            'total_cost': float(day.total_cost),
+            'payment_cash': float(day.total_cash),
+            'payment_check': float(day.total_check),
+            'payment_credit': float(day.total_credit),
+            'payment_received': float(day.total_payments)
+        } for day in daily_totals]
 
         # Generate filename
         filename = f"report_{start_date.strftime('%Y-%m-%d')}_{end_date.strftime('%Y-%m-%d')}"
@@ -137,9 +158,8 @@ def download_report():
         filepath = os.path.join("/tmp", filename)
 
         # Generate PDF
-        generate_report_pdf(orders_data, summary, start_date, end_date, territory, filepath)
+        generate_report_pdf(daily_data, summary, start_date, end_date, territory, filepath)
 
-        # Send file
         return send_file(
             filepath,
             mimetype='application/pdf',
@@ -148,10 +168,12 @@ def download_report():
         )
     except ValueError:
         flash('Invalid date format', 'error')
+        return redirect(url_for('routes.reports'))
     except Exception as e:
         flash(f'Error generating report: {str(e)}', 'error')
-    return redirect(url_for('routes.reports'))
+        return redirect(url_for('routes.reports'))
 
+# Additional routes remain unchanged
 @routes.route('/api/customers')
 @login_required
 def get_customers():

@@ -79,8 +79,8 @@ def generate_invoice_pdf(order, customer, filename):
 
     doc.build(story)
 
-def generate_report_pdf(orders, summary, start_date, end_date, territory, filename):
-    doc = SimpleDocTemplate(filename, pagesize=letter)
+def generate_report_pdf(daily_data, summary, start_date, end_date, territory, filename):
+    doc = SimpleDocTemplate(filename, pagesize=letter, leftMargin=36, rightMargin=36)
     styles = getSampleStyleSheet()
     story = []
 
@@ -129,23 +129,26 @@ def generate_report_pdf(orders, summary, start_date, end_date, territory, filena
     story.append(summary_table)
     story.append(Spacer(1, 20))
 
-    # Detailed Orders Table
-    if orders:
-        story.append(Paragraph("Order Details:", styles['Heading3']))
-        order_data = [['Date', 'Customer', 'Cases', 'Cost', 'Paid', 'Outstanding']]
+    # Daily Totals Table
+    if daily_data:
+        story.append(Paragraph("Daily Totals:", styles['Heading3']))
+        order_data = [[
+            'Date', 'Cases', 'Cost', 'Cash', 'Check', 'Credit', 'Total Paid'
+        ]]
         
-        for order in orders:
-            outstanding = float(order['total_cost']) - float(order['payment_received'])
+        for day in daily_data:
             order_data.append([
-                order['order_date'].split('T')[0],
-                order['customer_name'],
-                str(order['total_cases']),
-                f"${float(order['total_cost']):.2f}",
-                f"${float(order['payment_received']):.2f}",
-                f"${outstanding:.2f}"
+                day['order_date'].split('T')[0],
+                str(day['total_cases']),
+                f"${float(day['total_cost']):.2f}",
+                f"${float(day['payment_cash']):.2f}",
+                f"${float(day['payment_check']):.2f}",
+                f"${float(day['payment_credit']):.2f}",
+                f"${float(day['payment_received']):.2f}"
             ])
 
-        order_table = Table(order_data, colWidths=[1*inch, 2*inch, 1*inch, 1.2*inch, 1.2*inch, 1.2*inch])
+        col_widths = [1*inch, 0.8*inch, 1*inch, 1*inch, 1*inch, 1*inch, 1*inch]
+        order_table = Table(order_data, colWidths=col_widths)
         order_table.setStyle(TableStyle([
             ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),

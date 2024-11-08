@@ -272,6 +272,33 @@ def update_order(order_id):
         db.session.rollback()
         return jsonify({'error': str(e)}), 400
 
+@routes.route('/orders', methods=['POST'])
+@login_required
+def create_order():
+    try:
+        data = request.json
+        delivery_date = datetime.strptime(data['delivery_date'], '%Y-%m-%d').date()
+        
+        order = Order(
+            customer_id=data['customer_id'],
+            order_date=delivery_date,
+            delivery_date=delivery_date,
+            total_cases=0,
+            total_cost=0,
+            payment_cash=0,
+            payment_check=0,
+            payment_credit=0,
+            payment_received=0,
+            driver_expense=0
+        )
+        
+        db.session.add(order)
+        db.session.commit()
+        return jsonify({'success': True, 'id': order.id})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 400
+
 @routes.route('/invoice/<int:order_id>')
 @login_required
 def generate_invoice(order_id):
@@ -290,7 +317,6 @@ def generate_invoice(order_id):
         # Generate PDF
         generate_invoice_pdf(order, customer, filepath)
         
-        # Send file
         return send_file(
             filepath,
             mimetype='application/pdf',

@@ -89,11 +89,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
     document.getElementById('saveDriverExpense').addEventListener('click', saveDailyDriverExpense);
 
-    // Calculate total payment when any payment field changes
-    document.querySelectorAll('.payment-input').forEach(input => {
-        input.addEventListener('input', calculateTotalPayment);
-    });
-
     // Event delegation for input changes in the table
     $('#ordersTable').on('change', 'input', function() {
         const row = $(this).closest('tr');
@@ -101,7 +96,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const updatedData = collectRowData(row, data);
         
         // Update the order via API
-        fetch('/api/orders/' + data.id, {
+        fetch(`/api/orders/${data.id}`, {
             method: 'PUT',
             headers: {
                 'Content-Type': 'application/json'
@@ -111,6 +106,10 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(response => response.json())
         .then(() => {
             loadOrders(); // Reload to refresh totals
+        })
+        .catch(error => {
+            console.error('Error updating order:', error);
+            alert('Error updating order. Please try again.');
         });
     });
 
@@ -124,28 +123,6 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('customerId').innerHTML = customerOptions;
         });
 
-    function calculateTotalPayment() {
-        const cash = parseFloat(document.getElementById('paymentCash').value) || 0;
-        const check = parseFloat(document.getElementById('paymentCheck').value) || 0;
-        const credit = parseFloat(document.getElementById('paymentCredit').value) || 0;
-        const total = cash + check + credit;
-        document.getElementById('paymentReceived').value = total.toFixed(2);
-        validatePayments();
-    }
-
-    function validatePayments() {
-        const totalCost = parseFloat(document.getElementById('totalCost').value) || 0;
-        const totalPayment = parseFloat(document.getElementById('paymentReceived').value) || 0;
-        const saveButton = document.getElementById('saveOrder');
-        
-        if (totalPayment > totalCost) {
-            alert('Total payment cannot exceed total cost');
-            saveButton.disabled = true;
-        } else {
-            saveButton.disabled = false;
-        }
-    }
-
     function collectRowData(row, originalData) {
         return {
             id: originalData.id,
@@ -157,17 +134,11 @@ document.addEventListener('DOMContentLoaded', function() {
         };
     }
 
-    // Save order
+    // Save new order (simplified)
     document.getElementById('saveOrder').addEventListener('click', function() {
         const orderData = {
             customer_id: document.getElementById('customerId').value,
-            delivery_date: deliveryDate.value,
-            total_cases: parseInt(document.getElementById('totalCases').value),
-            total_cost: parseFloat(document.getElementById('totalCost').value),
-            payment_cash: parseFloat(document.getElementById('paymentCash').value) || 0,
-            payment_check: parseFloat(document.getElementById('paymentCheck').value) || 0,
-            payment_credit: parseFloat(document.getElementById('paymentCredit').value) || 0,
-            payment_received: parseFloat(document.getElementById('paymentReceived').value) || 0
+            delivery_date: deliveryDate.value
         };
 
         fetch('/orders', {
@@ -177,7 +148,12 @@ document.addEventListener('DOMContentLoaded', function() {
             },
             body: JSON.stringify(orderData)
         })
-        .then(response => response.json())
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            return response.json();
+        })
         .then(() => {
             $('#orderModal').modal('hide');
             loadOrders();

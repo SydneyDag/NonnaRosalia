@@ -98,57 +98,27 @@
     </div>
 </div>
 
-<!-- Order Modal -->
+<!-- Simplified Order Modal -->
 <div class="modal fade" id="orderModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Order Details</h5>
+                <h5 class="modal-title">Add Order</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
                 <form id="orderForm">
-                    <input type="hidden" id="orderId">
                     <div class="mb-3">
                         <label class="form-label">Customer</label>
                         <select class="form-control" id="customerId" required>
                             <!-- Will be populated dynamically -->
                         </select>
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label">Total Cases</label>
-                        <input type="number" class="form-control" id="totalCases" required min="1">
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Total Cost</label>
-                        <input type="number" class="form-control" id="totalCost" required min="0" step="0.01">
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Payment Details</label>
-                        <div class="row g-3">
-                            <div class="col-md-4">
-                                <label class="form-label">Cash</label>
-                                <input type="number" class="form-control payment-input" id="paymentCash" min="0" step="0.01" value="0">
-                            </div>
-                            <div class="col-md-4">
-                                <label class="form-label">Check</label>
-                                <input type="number" class="form-control payment-input" id="paymentCheck" min="0" step="0.01" value="0">
-                            </div>
-                            <div class="col-md-4">
-                                <label class="form-label">Credit</label>
-                                <input type="number" class="form-control payment-input" id="paymentCredit" min="0" step="0.01" value="0">
-                            </div>
-                        </div>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Total Payment Received</label>
-                        <input type="number" class="form-control" id="paymentReceived" readonly>
-                    </div>
                 </form>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                <button type="button" class="btn btn-primary" id="saveOrder">Save Order</button>
+                <button type="button" class="btn btn-primary" id="saveOrder">Add Order</button>
             </div>
         </div>
     </div>
